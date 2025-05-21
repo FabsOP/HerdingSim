@@ -1,0 +1,1 @@
+"climb-ability": [1, 10, 1, int, 2]
