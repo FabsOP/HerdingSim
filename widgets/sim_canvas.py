@@ -1,6 +1,7 @@
 import tkinter as tk
 from PIL import Image, ImageTk
-from widgets.behaviourTab import behaviours
+from boid import behaviours, lastModified
+
 
 import boid
 import time
@@ -9,15 +10,21 @@ canvasMultiplier = {"small": 1.5, "large": 2}
 paintWindowWidth = 55
 paintWindowStep = 5
 
+borderMode = "Wrap"
+
+testMode = True
+
 class SimCanvas(tk.Canvas):
     def __init__(self, parent, terrainSize, controller, mediaController):
-        super().__init__(parent, width=256*canvasMultiplier[terrainSize],
-                         height=256*canvasMultiplier[terrainSize],
+        self.width = 256*canvasMultiplier[terrainSize]
+        self.height = 256*canvasMultiplier[terrainSize]
+        
+        super().__init__(parent, width=self.width,
+                         height=self.height,
                          background="#B9D8B2", highlightbackground="#4C6B32",
                          highlightthickness=1.5,
                          relief="sunken",
                          )
-
         self.grid(row=0, column=0, padx=20, pady=(20, 0), sticky="nsew")
         self.spawned_boids = [] 
         self.controller = controller
@@ -45,33 +52,56 @@ class SimCanvas(tk.Canvas):
         self.bgPhoto = ImageTk.PhotoImage(bgImage)
         self.create_image(0, 0, anchor=tk.NW, image=self.bgPhoto)
     
+    def clear_canvas(self):
+        self.delete("all")
+    
     #update canvas
     def update(self, fps,ti):
+        self.clear_canvas()
+        
         tf = time.time()
-        if not self.mediaController.isPaused: 
-            dt = tf-ti
-            dt *= self.mediaController.dtMultiplier
-            for animal in self.spawned_boids:
-                params = behaviours[animal.species]
-                animal.move(params, dt)
-                self.coords(animal.getCanvasId(), animal.position[0], animal.position[1])
+        dt = tf-ti
+        dt *= self.mediaController.dtMultiplier
+        for animal in self.spawned_boids:
+            self.visualizeParams()               
+            if not self.mediaController.isPaused:
+                animal.move(dt)
+                animal.handleBorder(borderMode,w=self.width,h=self.height, pad = [10,10])
+            self.create_image(animal.position[0], animal.position[1], image=animal.tkImage)
             
         self.after(int(1000/fps), lambda: self.update(fps, tf))
 
+    def visualizeParams(self):
+        if not testMode: 
+            print("Activate test mode to visualise params")
+        else:
+            # print(boid.lastModified)
+            if not boid.lastModified: return
+            
+            #radial vizualizations
+            if boid.lastModified["parameter"] in ["comfort-zone", "danger-zone", "flockmate-range", "obstacle-range"]:
+                for animal in self.spawned_boids:
+                    radius = behaviours[boid.lastModified["species"]].get(boid.lastModified["parameter"],None)
+                    if radius:
+                        self.create_oval(animal.position[0]-radius[4]//1, animal.position[1]-radius[4]//1 ,animal.position[0]+radius[4]//1, animal.position[1]+radius[4]//1, fill=None, outline="#C1E1C1", width=2 )
+
+            
+
+    
     # event handlers
     def handleClick(self, e):
         if self.controller.get_selected_animal() is not None:
             pos = (e.x,e.y)
             selectedSpecies = self.controller.get_selected_animal()
             print(f"Spawning {selectedSpecies} at: ({pos[0]}, {pos[1]})")
-            
             animal = boid.factory(species=selectedSpecies, pos=pos)
-            
             animal.loadImage(f"icons/{selectedSpecies.lower()}_land.png")
             image = animal.tkImage
             if image:
-                #draw image
-                animal.setCanvasId(self.create_image(e.x, e.y, image=image))
+                # draw image
+                self.create_image(e.x, e.y, image=image)
+
+                # add to boid list
                 self.spawned_boids.append(animal)
             else: 
                 print("Failed to draw")

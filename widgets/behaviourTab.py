@@ -1,96 +1,8 @@
 import tkinter as tk
 import copy
-
-default_behaviours = {
-    "Sheep": {
-        "size": [0,100, 1, int, 32],
-        "max-acceleration": [1, 10, 1, int, 1],
-        "max-velocity": [1, 10, 1, int, 4],
-        "cohesion": [0, 1, 0.1, float, 0.3],
-        "adhesion": [0, 1, 0.1, float, 0.5],
-        "separation": [0, 1, 0.1, float, 0.2],
-        "cruising-speed": [0,4,1,int,0], #[0,max-velocity,_,_]
-        "comfort-zone": [32, 100,1,int,40], #[size, inf,_,_]
-        "danger-zone": [32,40,1,int, 32 ], #[size, comfort,_,_]
-        "obstacle-range": [32,100,1,int,32], #[size, inf,_,_]
-        "flockmate-range": [40,100,1,int,40], #[comfort, inf]
-        "view-angle": [90, 180,1,int,90],
-        "drag-factor": [0, 55, 1, int, 10]
-    },
-    "Lion": {
-        "max-acceleration": [1, 10, 1, int, 8],
-        "max-velocity": [1, 10, 1, int, 9],
-        "cohesion": [0, 1, 0.1, float, 0.2],
-        "adhesion": [0, 1, 0.1, float, 0.1],
-        "separation": [0, 1, 0.1, float, 0.7],
-        "perception-radius": [1, 20, 1, int, 15]
-    },
-    "Fox": {
-        "max-acceleration": [1, 10, 1, int, 7],
-        "max-velocity": [1, 10, 1, int, 8],
-        "cohesion": [0, 1, 0.1, float, 0.2],
-        "adhesion": [0, 1, 0.1, float, 0.1],
-        "separation": [0, 1, 0.1, float, 0.6],
-        "perception-radius": [1, 20, 1, int, 12]
-    },
-    "Penguin": {
-        "max-acceleration": [1, 10, 1, int, 3],
-        "max-velocity": [1, 10, 1, int, 5],
-        "cohesion": [0, 1, 0.1, float, 0.8],
-        "adhesion": [0, 1, 0.1, float, 0.7],
-        "separation": [0, 1, 0.1, float, 0.4],
-        "perception-radius": [1, 20, 1, int, 8]
-    },
-    "Bunny": {
-        "max-acceleration": [1, 10, 1, int, 9],
-        "max-velocity": [1, 10, 1, int, 7],
-        "cohesion": [0, 1, 0.1, float, 0.1],
-        "adhesion": [0, 1, 0.1, float, 0.1],
-        "separation": [0, 1, 0.1, float, 0.8],
-        "perception-radius": [1, 20, 1, int, 6]
-    },
-    "Fish": {
-        "max-acceleration": [1, 10, 1, int, 4],
-        "max-velocity": [1, 10, 1, int, 6],
-        "cohesion": [0, 1, 0.1, float, 0.9],
-        "adhesion": [0, 1, 0.1, float, 0.8],
-        "separation": [0, 1, 0.1, float, 0.3],
-        "perception-radius": [1, 20, 1, int, 10]
-    }
-}
-
-
-# Set initial values for behaviours
-behaviours = copy.deepcopy(default_behaviours)
-
-# Short display names
-param_short_names = {
-    "max-acceleration": "Max Force",
-    "max-velocity": "Max Velocity",
-    "cohesion": "Cohesion",
-    "adhesion": "Adhesion",
-    "separation": "Separation",
-    "perception-radius": "Perception",
-    "drag-factor": "Drag Factor",
-    "size": "Size",
-    "comfort-zone": "Comfort Zone",
-    "danger-zone": "Danger Zone",
-    "view-angle": "View Angle",
-    "cruising-speed": "Cruise Speed",
-    "obstacle-range": "Avoidance",
-    "flockmate-range": "Flock Range"
-}
-
-def updateParamBoundaries():
-    sheep = behaviours["Sheep"]
-    sheep["max-velocity"][0] = sheep["cruising-speed"][4]
-    sheep["cruising-speed"][1] = sheep["max-velocity"][4]
-    sheep["comfort-zone"][0] = sheep["size"][4]
-    sheep["danger-zone"][0] = sheep["size"][4]
-    sheep["danger-zone"][1] = sheep["comfort-zone"][4]
-    sheep["flockmate-range"][0] = sheep["comfort-zone"][4]
-    sheep["obstacle-range"][0] = sheep["size"][4]
-    
+from boid import default_behaviours, behaviours, param_short_names,updateParamBoundaries
+import boid
+import time
 
 class BehaviourTab(tk.Frame):
     def __init__(self, parent):
@@ -150,6 +62,9 @@ class BehaviourTab(tk.Frame):
 
         param_row = 0
         for param in default_behaviours[self.selection]:
+            if isinstance(behaviours[self.selection][param], int): 
+                continue
+            
             min_val, max_val, step, val_type, val = behaviours[self.selection][param]
 
             param_frame = tk.Frame(visible_frame, bg="#F5FBEF")
@@ -235,9 +150,9 @@ class BehaviourTab(tk.Frame):
             # Update the slider to match
             self.sliders[param].set(new_val)
             
-            # Update dependent parameters
+            boid.lastModified= {"species": self.selected, "parameter": param, "time": time.time()}
             updateParamBoundaries()
-            self.update_sliders()
+            self.refresh_sliders()
             
         except ValueError:
             # Restore the previous valid value if conversion fails
@@ -261,10 +176,11 @@ class BehaviourTab(tk.Frame):
         behaviours[self.selection][param][4] = typed_val
         
         # Update dependent parameters
+        boid.lastModified = {"species": self.selection, "parameter": param, "time": time.time()}
         updateParamBoundaries()
-        self.update_sliders()
+        self.refresh_sliders()
 
-    def update_sliders(self):
+    def refresh_sliders(self):
         # Update slider bounds and values to reflect current parameter constraints
         for key, slider in self.sliders.items():
             param_config = behaviours[self.selection][key]
