@@ -123,7 +123,7 @@ class Boid():
         
         self.position = np.array([pos[0], pos[1]], dtype=float)
         self.origin = np.array([pos[0], pos[1]], dtype=float)
-        self.velocity = np.array([0, 0], dtype=float)
+        self.velocity = np.array([0, -1], dtype=float)
         self.acceleration = np.array([0, 0], dtype=float)
         
         self.time_alive = 0  # track time since spawn
@@ -166,5 +166,5 @@ class Sheep(Boid):
         super().__init__(species="Sheep", pos=pos)
     
     def move(self, dt):
-        self.position += np.array([10,0],dtype=float) * dt
+        self.position += np.array([0,10],dtype=float) * dt
         

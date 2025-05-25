@@ -5,6 +5,7 @@ from boid import behaviours, lastModified
 
 import boid
 import time
+import math
 
 canvasMultiplier = {"small": 1.5, "large": 2}
 paintWindowWidth = 55
@@ -13,6 +14,20 @@ paintWindowStep = 5
 borderMode = "Wrap"
 
 testMode = True
+
+#Helper functions
+def vectorAngle(vector):
+    """The angle of a vector [0,360] anti-clockwise from the positive x-axis [1,0]"""
+    vx = vector[0]
+    vy = vector[1]
+    
+    # Use atan2 which handles all quadrants correctly
+    theta_radians = math.atan2(vy, vx)
+    
+    # Convert to degrees and use modulo to handle negative angles
+    theta_degrees = (theta_radians * 180 / math.pi) % 360
+    
+    return int(theta_degrees)
 
 class SimCanvas(tk.Canvas):
     def __init__(self, parent, terrainSize, controller, mediaController):
@@ -79,11 +94,35 @@ class SimCanvas(tk.Canvas):
             if not boid.lastModified: return
             
             #radial vizualizations
-            if boid.lastModified["parameter"] in ["comfort-zone", "danger-zone", "flockmate-range", "obstacle-range"]:
+            if boid.lastModified["parameter"] in ["comfort-zone", "danger-zone"]:
                 for animal in self.spawned_boids:
+                    if animal.species != boid.lastModified["species"]: continue
                     radius = behaviours[boid.lastModified["species"]].get(boid.lastModified["parameter"],None)
                     if radius:
                         self.create_oval(animal.position[0]-radius[4]//1, animal.position[1]-radius[4]//1 ,animal.position[0]+radius[4]//1, animal.position[1]+radius[4]//1, fill=None, outline="#C1E1C1", width=2 )
+            
+            #angle vizualizations
+            if boid.lastModified["parameter"] in ["obstacle-range", "flockmate-range", "view-angle"]:
+                for animal in self.spawned_boids:
+                    if animal.species != boid.lastModified["species"]: continue
+                    
+                    arcRadius = behaviours[boid.lastModified["species"]].get(boid.lastModified["parameter"],None)
+                    
+                    if boid.lastModified["parameter"] == "view-angle":
+                        arcRadius = behaviours[boid.lastModified["species"]].get("flockmate-range",None)
+                    
+                    viewAngle = behaviours[boid.lastModified["species"]].get("view-angle", None)
+                    if arcRadius and viewAngle:
+                        centerTheta = vectorAngle(animal.velocity)
+                        startTheta = (centerTheta - viewAngle[4]//2) % 360
+                        endTheta = (centerTheta + viewAngle[4]//2) % 360
+                        
+                        #draw arc
+                        self.create_arc(animal.position[0]-arcRadius[4], animal.position[1]-arcRadius[4],
+                                        animal.position[0]+arcRadius[4], animal.position[1]+arcRadius[4],
+                                        start=startTheta, extent= viewAngle[4], fill=None, outline="#C1E1C1", width=2 )
+                    
+                    
 
             
 
