@@ -2,10 +2,12 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from boid import behaviours, lastModified
 
-
 import boid
 import time
-import math
+
+from vector import vectorAngle
+
+import random
 
 canvasMultiplier = {"small": 1.5, "large": 2}
 paintWindowWidth = 55
@@ -16,18 +18,7 @@ borderMode = "Wrap"
 testMode = True
 
 #Helper functions
-def vectorAngle(vector):
-    """The angle of a vector [0,360] anti-clockwise from the positive x-axis [1,0]"""
-    vx = vector[0]
-    vy = vector[1]
-    
-    # Use atan2 which handles all quadrants correctly
-    theta_radians = math.atan2(vy, vx)
-    
-    # Convert to degrees and use modulo to handle negative angles
-    theta_degrees = (theta_radians * 180 / math.pi) % 360
-    
-    return int(theta_degrees)
+
 
 class SimCanvas(tk.Canvas):
     def __init__(self, parent, terrainSize, controller, mediaController):
@@ -41,7 +32,7 @@ class SimCanvas(tk.Canvas):
                          relief="sunken",
                          )
         self.grid(row=0, column=0, padx=20, pady=(20, 0), sticky="nsew")
-        self.spawned_boids = [] 
+        self.spawned_boids = {species: [] for species in behaviours.keys()}
         self.controller = controller
         self.mediaController = mediaController
         self.windowRec = None
@@ -77,12 +68,14 @@ class SimCanvas(tk.Canvas):
         tf = time.time()
         dt = tf-ti
         dt *= self.mediaController.dtMultiplier
-        for animal in self.spawned_boids:
-            self.visualizeParams()               
-            if not self.mediaController.isPaused:
-                animal.move(dt)
-                animal.handleBorder(borderMode,w=self.width,h=self.height, pad = [10,10])
-            self.create_image(animal.position[0], animal.position[1], image=animal.tkImage)
+        for species in self.spawned_boids.keys():
+            for animal in self.spawned_boids[species]:
+                self.visualizeParams()               
+                if not self.mediaController.isPaused:
+                    animal.update(dt)
+                    animal.handleBorder(borderMode,w=self.width,h=self.height, pad = [10,10])
+                self.create_image(animal.position[0], animal.position[1], image=animal.tkImage)
+        
             
         self.after(int(1000/fps), lambda: self.update(fps, tf))
 
@@ -95,7 +88,7 @@ class SimCanvas(tk.Canvas):
             
             #radial vizualizations
             if boid.lastModified["parameter"] in ["comfort-zone", "danger-zone"]:
-                for animal in self.spawned_boids:
+                for animal in self.spawned_boids[boid.lastModified["species"]][:5]:
                     if animal.species != boid.lastModified["species"]: continue
                     radius = behaviours[boid.lastModified["species"]].get(boid.lastModified["parameter"],None)
                     if radius:
@@ -103,7 +96,7 @@ class SimCanvas(tk.Canvas):
             
             #angle vizualizations
             if boid.lastModified["parameter"] in ["obstacle-range", "flockmate-range", "view-angle"]:
-                for animal in self.spawned_boids:
+                for animal in self.spawned_boids[boid.lastModified["species"]][:5]:
                     if animal.species != boid.lastModified["species"]: continue
                     
                     arcRadius = behaviours[boid.lastModified["species"]].get(boid.lastModified["parameter"],None)
@@ -113,37 +106,37 @@ class SimCanvas(tk.Canvas):
                     
                     viewAngle = behaviours[boid.lastModified["species"]].get("view-angle", None)
                     if arcRadius and viewAngle:
-                        centerTheta = vectorAngle(animal.velocity)
-                        startTheta = (centerTheta - viewAngle[4]//2) % 360
-                        endTheta = (centerTheta + viewAngle[4]//2) % 360
+                        centerTheta = vectorAngle([animal.velocity[0], -animal.velocity[1]])
+                        startTheta = (centerTheta - viewAngle[4]) % 360
+                        
                         
                         #draw arc
                         self.create_arc(animal.position[0]-arcRadius[4], animal.position[1]-arcRadius[4],
                                         animal.position[0]+arcRadius[4], animal.position[1]+arcRadius[4],
-                                        start=startTheta, extent= viewAngle[4], fill=None, outline="#C1E1C1", width=2 )
+                                        start=startTheta, extent= 2*viewAngle[4], fill=None, outline="#C1E1C1", width=2 )
                     
-                    
-
-            
-
-    
     # event handlers
     def handleClick(self, e):
         if self.controller.get_selected_animal() is not None:
             pos = (e.x,e.y)
             selectedSpecies = self.controller.get_selected_animal()
             print(f"Spawning {selectedSpecies} at: ({pos[0]}, {pos[1]})")
-            animal = boid.factory(species=selectedSpecies, pos=pos)
-            animal.loadImage(f"icons/{selectedSpecies.lower()}_land.png")
-            image = animal.tkImage
-            if image:
-                # draw image
-                self.create_image(e.x, e.y, image=image)
+            
+            for i in range(self.controller.get_spawn_size()):
+                # spawn boid
+                offsetPos = [random.choice([pos[0]-i*5, pos[0]+i*5]), random.choice([pos[1]-i*5, pos[1]+i*5])]
+                animal = boid.factory(species=selectedSpecies, pos= offsetPos)
+                animal.loadImage(f"icons/{selectedSpecies.lower()}_land.png")
+                image = animal.tkImage
+                if image:
+                    # draw image
+                    self.create_image(e.x, e.y, image=image)
 
-                # add to boid list
-                self.spawned_boids.append(animal)
-            else: 
-                print("Failed to draw")
+                    # add to boid list
+                    self.spawned_boids[selectedSpecies].append(animal)
+                else: 
+                    print("Failed to draw")
+            
    
     def handleHover(self, e):
         # print(f"Mouse coordinates ({e.x} {e.y})")

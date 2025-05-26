@@ -3,6 +3,7 @@ import numpy as np
 from PIL import Image, ImageTk
 import copy
 import time
+from vector import dot, magnitude, ssq, unit
 # import threading
 
 ##### PARAMETERS #######################################
@@ -115,7 +116,7 @@ class Boid():
     def __init__(self, species, pos):
         print("Creating boid")
         self.species = species
-        
+        self.mass = 1
         self.size = behaviours[species]["size"]
         self.image = None
         self.tkImage = None
@@ -123,8 +124,12 @@ class Boid():
         
         self.position = np.array([pos[0], pos[1]], dtype=float)
         self.origin = np.array([pos[0], pos[1]], dtype=float)
-        self.velocity = np.array([0, -1], dtype=float)
+
+        randomAngle = np.random.uniform(0, 2 * np.pi)
+        self.velocity = (np.random.randint(0,101)/100)*behaviours[self.species]["max-velocity"][4]*np.array([np.cos(randomAngle), np.sin(randomAngle)], dtype=float)
+        
         self.acceleration = np.array([0, 0], dtype=float)
+        self.netForce = np.array([0, 0], dtype=float)
         
         self.time_alive = 0  # track time since spawn
         
@@ -135,7 +140,7 @@ class Boid():
         self.tkImage = ImageTk.PhotoImage(self.image)
         self.imagePath = path
 
-    def move(self, dt):
+    def update(self, dt):
         self.time_alive += dt
         t = self.time_alive
         a = 2  # spiral scale factor (adjust for tightness)
@@ -146,6 +151,20 @@ class Boid():
         y = r * np.sin(t)
 
         self.position = self.origin + np.array([x, y])
+    
+    def updatePosition(self,dt):
+        self.position += self.velocity*dt #+ 1/2*self.acceleration*(dt)**2
+    
+    def updateVelocity(self,dt):
+        self.velocity += self.acceleration*dt
+        
+        if ssq(self.velocity)> behaviours[self.species]["max-velocity"][4]**2:
+            # Limit the velocity to max-velocity
+            self.velocity = unit(self.velocity) * behaviours[self.species]["max-velocity"][4]
+            
+    
+    def updateAcceleration(self):
+        self.acceleration = self.netForce/self.mass
     
     def resizeImage(self, newSize):
         if self.size == newSize: return
@@ -165,6 +184,8 @@ class Sheep(Boid):
         print(f"Creating sheep at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Sheep", pos=pos)
     
-    def move(self, dt):
-        self.position += np.array([0,10],dtype=float) * dt
+    def update(self, dt):
+        self.updateVelocity(dt)
+        self.updatePosition(dt)
+        
         

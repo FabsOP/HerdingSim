@@ -54,3 +54,6 @@ class Controller(tk.Frame):
         
     def unselect_terrains(self):
         self.terrainTab.unselect_all()
+        
+    def get_spawn_size(self):
+        return self.speciesTab.spawnSizeSlider.get()

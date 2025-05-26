@@ -43,9 +43,10 @@ class SpeciesTab(tk.Frame):
             
             ToolTip(btn, msg=icon[2], delay=1, bd=1, font=("Comic Sans MS", 8, "bold"), bg="#E2F0D9", fg="#4C6B32")
             
-        # b) Herd Size section
+        # b) Spawn Size section
         tk.Label(parent, text="Spawn Size", bg="#F5FBEF", font = ("Comic Sans MS", 9, "bold"), fg="#4C6B32").pack(pady=10)
-        tk.Scale(
+        
+        self.spawnSizeSlider = tk.Scale(
         parent,
         from_=1,
         to=10,
@@ -59,8 +60,17 @@ class SpeciesTab(tk.Frame):
         font=("Comic Sans MS", 8, "bold"),
         sliderrelief=tk.FLAT,
         bd=1,
-        length=160
-    ).pack(pady=5)
+        length=160,
+        command=self.handleSliderChange,
+        )
+        self.spawnSizeSlider.set(1)  # Set default spawn size to 1    
+        
+        self.spawnSizeSlider.pack(pady=5)
+    
+    def handleSliderChange(self, value):
+        print(f"Spawn size changed to: {value}")
+        self.spawnSizeSlider.set(value)
+        
             
     def selectAnimal(self, animal):
         self.selected_animal = animal
