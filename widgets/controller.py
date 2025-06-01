@@ -4,6 +4,7 @@ import tkinter as tk
 from widgets.animalTab import SpeciesTab
 from widgets.terrainEditorTab import TerrainTab
 from widgets.behaviourTab import BehaviourTab
+import boid
 
 class Controller(tk.Frame):
     def __init__(self, parent):
@@ -27,11 +28,13 @@ class Controller(tk.Frame):
         tab1 = tk.Frame(notebook, bg="#F5FBEF")
         tab2 = tk.Frame(notebook, bg="#F5FBEF")
         tab3 = tk.Frame(notebook, bg="#F5FBEF")
+        
 
         # Add tabs to notebook
         notebook.add(tab1, text="Species")
         notebook.add(tab2, text="Terrain Editor")
         notebook.add(tab3, text="Behaviour")
+        
         
         #Tab 1
         self.speciesTab = SpeciesTab(tab1, self.unselect_terrains)

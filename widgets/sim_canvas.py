@@ -58,12 +58,19 @@ class SimCanvas(tk.Canvas):
         self.bgPhoto = ImageTk.PhotoImage(bgImage)
         self.create_image(0, 0, anchor=tk.NW, image=self.bgPhoto)
     
-    def clear_canvas(self):
-        self.delete("all")
+    def clear_canvas(self,excl=None):
+        if excl is None:
+            self.delete("all")
+            
+        all_items = self.find_all()
+        for item in all_items:
+            if item not in excl:
+                self.delete(item)
+        
     
     #update canvas
     def update(self, fps,ti):
-        self.clear_canvas()
+        self.clear_canvas(excl=[self.windowRec])
         
         tf = time.time()
         dt = tf-ti
@@ -72,7 +79,8 @@ class SimCanvas(tk.Canvas):
             for animal in self.spawned_boids[species]:
                 self.visualizeParams()               
                 if not self.mediaController.isPaused:
-                    animal.update(dt)
+                    allBoids = [boid for s in self.spawned_boids.values() for boid in s]  # Flatten the list of boids
+                    animal.update(allBoids,dt)       #todo: pass all boids regardless of species
                     animal.handleBorder(borderMode,w=self.width,h=self.height, pad = [10,10])
                 self.create_image(animal.position[0], animal.position[1], image=animal.tkImage)
         
@@ -111,9 +119,16 @@ class SimCanvas(tk.Canvas):
                         
                         
                         #draw arc
+                        if boid.lastModified["parameter"] == "obstacle-range":
+                            arcColour = "#C1E1C1"
+                        elif boid.lastModified["parameter"] == "flockmate-range":
+                            arcColour = "red" if animal.hasVisableNeighbours else "#C1E1C1"
+                        elif boid.lastModified["parameter"] == "view-angle":
+                            arcColour = "#C1E1C1"
+                            
                         self.create_arc(animal.position[0]-arcRadius[4], animal.position[1]-arcRadius[4],
                                         animal.position[0]+arcRadius[4], animal.position[1]+arcRadius[4],
-                                        start=startTheta, extent= 2*viewAngle[4], fill=None, outline="#C1E1C1", width=2 )
+                                        start=startTheta, extent= 2*viewAngle[4], fill=None, outline=arcColour, width=2 )
                     
     # event handlers
     def handleClick(self, e):

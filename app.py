@@ -1,7 +1,4 @@
 #### IMPORTS ###############################
-import tkinter as tk
-from tkinter import ttk
-
 from widgets.simulation import Simulation
 from widgets.main_menu import MainMenu
 
@@ -35,6 +32,7 @@ def scheduleNextSong(sim):
 songIdx = 0
 playlist = [("audio/music/answers-from-angels-333760.mp3",0.02, MP3("audio/music/answers-from-angels-333760.mp3").info.length),
             ("audio/music/lost-in-summer-232501.mp3",0.04, MP3("audio/music/lost-in-summer-232501.mp3").info.length),
+            ("audio/music/infinityBetweenUs.mp3",0.1, MP3("audio/music/infinityBetweenUs.mp3").info.length)
             ]  #[(song path, volume, duration(s)),..]
 random.shuffle(playlist)
 

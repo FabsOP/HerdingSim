@@ -18,6 +18,7 @@ class BehaviourTab(tk.Frame):
 
         selector_frame = tk.Frame(header_frame, bg="#F5FBEF")
         selector_frame.pack(pady=2)
+               
 
         tk.Button(selector_frame, text="<", bg="#E2F0D9", fg="#4C6B32", font=("Comic Sans MS", 8, "bold"),
                   relief="raised", bd=1, width=1, command=lambda: self.changeSelection("<")).pack(side=tk.LEFT, padx=2)
@@ -40,6 +41,8 @@ class BehaviourTab(tk.Frame):
         self.sliders = {}
         self.value_entries = {}  # Store entry widgets
         self.create_sliders()
+        
+        self.bind("<ButtonRelease-1>", lambda event: setattr(boid, 'lastModified', None))
 
     def create_sliders(self):
         for widget in self.behaviour_settings_frame.winfo_children():
@@ -88,6 +91,7 @@ class BehaviourTab(tk.Frame):
             
             self.value_entries[param] = value_var
 
+
             # Slider
             resolution = step
             slider = tk.Scale(
@@ -111,9 +115,18 @@ class BehaviourTab(tk.Frame):
             )
             slider.grid(row=0, column=2, padx=(2, 0))
             slider.set(val)
+            
+            #bind click to update last modified
+            slider.bind("<ButtonRelease-1>", lambda event, p=param: 
+                        setattr(boid, 'lastModified', {"species": self.selection, "parameter": p, "time": time.time()}))
+            
             self.sliders[param] = slider
+            
+            
 
             param_row += 1
+            
+            self.handle_non_slider_clicks(param_frame)
 
     def update_from_entry(self, param, value_var, val_type):
         """Update the value when the entry is changed"""
@@ -150,7 +163,7 @@ class BehaviourTab(tk.Frame):
             # Update the slider to match
             self.sliders[param].set(new_val)
             
-            boid.lastModified= {"species": self.selected, "parameter": param, "time": time.time()}
+            boid.lastModified= {"species": self.selection, "parameter": param, "time": time.time()}
             updateParamBoundaries()
             self.refresh_sliders()
             
@@ -227,3 +240,17 @@ class BehaviourTab(tk.Frame):
     def reset_to_default(self):
         behaviours[self.selection] = copy.deepcopy(default_behaviours[self.selection])
         self.create_sliders()
+    
+    
+    def handle_non_slider_clicks(self, widget=None):
+        """Recursively bind the ButtonRelease event to all widgets"""
+        if widget is None:
+            widget = self
+        
+        # Bind to current widget, but exclude sliders to avoid interference
+        if not isinstance(widget, tk.Scale):
+            widget.bind("<ButtonRelease-1>", lambda event: setattr(boid, 'lastModified', None))
+        
+        # Recursively bind to all children
+        for child in widget.winfo_children():
+            self.handle_non_slider_clicks(child)

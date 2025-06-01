@@ -5,6 +5,7 @@ from widgets.media_controller import MediaController
 from widgets.sim_canvas import SimCanvas
 from widgets.behaviourTab import behaviours
 
+
 #### SIMULATION CLASS ####################
 windowSizeMap = {"small": "680x490", "large": "810x600"}
 class Simulation(tk.Tk):
@@ -24,8 +25,12 @@ class Simulation(tk.Tk):
         self.media = MediaController(self)
         self.canvas = SimCanvas(self, terrainSize, self.controller, self.media)
         
+        self.inactiveTimer = None
+        
         #Focus widget on click
-        self.bind_all("<Button-1>", lambda event: event.widget.focus_set())
+        self.bind_all("<Button-1>", lambda event: (
+            event.widget.focus_set()
+            ))
         
 
     ### b) Function to center window on screen        
