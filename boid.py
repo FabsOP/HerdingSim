@@ -10,17 +10,17 @@ from vector import dot, magnitude, ssq, unit, vectorAngle
 ##### PARAMETERS #######################################
 default_behaviours = {
     "Sheep": {
-        "size": 8,
+        "size": 12,
         "herd-size": [1,100, 1, int, 32],
         "max-acceleration": [1, 100, 1, int, 30],
-        "max-velocity": [1, 100, 1, int, 10],
-        "cruising-speed": [0,4,1,int,0], #[0,max-velocity,_,_]
-        "comfort-zone": [32, 100,1,int,14], #[size, inf,_,_]
-        "danger-zone": [32,40,1,int, 9 ], #[size, comfort,_,_]
-        "obstacle-range": [32,100,1,int,32], #[size, inf,_,_]
-        "flockmate-range": [40,100,1,int,40], #[comfort, inf]
+        "max-velocity": [1, 100, 1, int, 15],
+        "cruising-speed": [1,10,1,int,0], #[0,max-velocity,_,_]
+        "comfort-zone": [16, 100,1,int,14], #[size, inf,_,_]
+        "danger-zone": [16,40,1,int,9], #[size, comfort,_,_]
+        "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
+        "flockmate-range": [40,200,1,int,40], #[comfort, inf]
         "view-angle": [1, 180,1,int,90],
-        "drag-factor": [0, 55, 1, int, 10]
+        "drag-factor": [0, 100, 1, int, 30]
     },
     "Lion": {
         "size": 32,
@@ -41,13 +41,17 @@ default_behaviours = {
         "perception-radius": [1, 20, 1, int, 12]
     },
     "Penguin": {
-        "size": 12,
-        "max-acceleration": [1, 10, 1, int, 3],
-        "max-velocity": [1, 10, 1, int, 5],
-        "cohesion": [0, 1, 0.1, float, 0.8],
-        "adhesion": [0, 1, 0.1, float, 0.7],
-        "separation": [0, 1, 0.1, float, 0.4],
-        "perception-radius": [1, 20, 1, int, 8]
+        "size": 8,
+        "herd-size": [1,100, 1, int, 32],
+        "max-acceleration": [1, 100, 1, int, 30],
+        "max-velocity": [1, 100, 1, int, 10],
+        "cruising-speed": [0,4,1,int,0], #[0,max-velocity,_,_]
+        "comfort-zone": [32, 100,1,int,14], #[size, inf,_,_]
+        "danger-zone": [32,40,1,int,9], #[size, comfort,_,_]
+        "obstacle-range": [32,100,1,int,32], #[size, inf,_,_]
+        "flockmate-range": [40,100,1,int,40], #[comfort, inf]
+        "view-angle": [1, 180,1,int,90],
+        "drag-factor": [0, 55, 1, int, 10]
     },
     "Bunny": {
         "size": 8,
@@ -94,11 +98,20 @@ def updateParamBoundaries():
     sheep = behaviours["Sheep"]
     sheep["max-velocity"][0] = sheep["cruising-speed"][4]
     sheep["cruising-speed"][1] = sheep["max-velocity"][4]
-    sheep["comfort-zone"][0] = sheep["size"]
+    sheep["comfort-zone"][0] = sheep["size"] + 1
     sheep["danger-zone"][0] = sheep["size"]
     sheep["danger-zone"][1] = sheep["comfort-zone"][4] -1
     sheep["flockmate-range"][0] = sheep["comfort-zone"][4]
     sheep["obstacle-range"][0] = sheep["size"]
+    
+    penguin = behaviours["Penguin"]
+    penguin["max-velocity"][0] = penguin["cruising-speed"][4]
+    penguin["cruising-speed"][1] = penguin["max-velocity"][4]
+    penguin["comfort-zone"][0] = penguin["size"] + 1
+    penguin["danger-zone"][0] = penguin["size"]
+    penguin["danger-zone"][1] = penguin["comfort-zone"][4] -1
+    penguin["flockmate-range"][0] = penguin["comfort-zone"][4]
+    penguin["obstacle-range"][0] = penguin["size"]
     
 def accumulate(accumulatorVector, vectorToAdd):
     temp = accumulatorVector + vectorToAdd
@@ -118,6 +131,8 @@ def accumulate(accumulatorVector, vectorToAdd):
 def factory(species, pos):
     if species == "Sheep":
         return Sheep(pos)
+    elif species == "Penguin":
+        return Penguin(pos)
     else:
         print("Species not in factory. Instantiating superclass.")
         return Boid(species=species, pos=pos)
@@ -132,10 +147,13 @@ class Boid():
         self.image = None
         self.tkImage = None
         self.imagePath = None
+        self.canvasId = None
         
         self.flock = Flock(species, members=[self])
         self.neighbours = []
         self.flockNeighbours = []
+        
+        self.goal = None
         
         #flags
         self.hasVisableNeighbours = False 
@@ -151,14 +169,17 @@ class Boid():
         
         self.time_alive = 0  # track time since spawn
         
+    def setGoal(self, goal):
+        self.goal = goal
     
     def loadImage(self, path):
         print("Loading image at", path)
         self.image = Image.open(path).resize((self.size, self.size))
         self.tkImage = ImageTk.PhotoImage(self.image)
         self.imagePath = path       
+        
 
-    def update(self, boids, dt):
+    def update(self, boids, terrain,dt):
         self.time_alive += dt
         t = self.time_alive
         a = 2  # spiral scale factor (adjust for tightness)
@@ -170,8 +191,10 @@ class Boid():
 
         self.position = self.origin + np.array([x, y])
     
-    def updatePosition(self, dt):
-        self.position += self.velocity*dt #+ 1/2*self.acceleration*(dt)**2
+    def updatePosition(self,terrain, dt):
+        gradVelocityComponent = dot(unit(self.velocity), terrain.gradientField[int(self.position[1])][int(self.position[0])])
+        slopeCorrectionFactor = 1/np.sqrt(gradVelocityComponent**2 +1)
+        self.position += slopeCorrectionFactor*self.velocity*dt
     
     def updateVelocity(self, dt):
         self.velocity += self.acceleration*dt
@@ -189,12 +212,26 @@ class Boid():
         self.size = newSize
         self.loadImage(self.imagePath)
     
-    def handleBorder(self, borderType, w, h, pad):
+    def handleBorder(self, borderType, w, h):
         if borderType == "Wrap":
-            if self.position[0] > w + pad[0] or self.position[0] < w:
+            if self.position[0] > w  or self.position[0] < w:
                 self.position[0] = self.position[0] % w
-            if self.position[1] > h + pad[1] or self.position[1] < h:
+            if self.position[1] > h or self.position[1] < h:
                 self.position[1] = self.position[1] % w
+        elif borderType == "Bounce":
+            #x coords
+            hitLeft = self.position[0] - self.size/2 <= 0 and self.velocity[0] < 0
+            hitRight = self.position[0] + self.size/2 >= w and self.velocity[0] > 0
+            if (hitLeft or hitRight):
+                self.position[0] = (self.size/2 if hitLeft else w-self.size/2)
+                self.velocity[0] *= -1
+            
+            #y coords   
+            hitBottom = self.position[1] + self.size/2 >= h and self.velocity[1] > 0
+            hitTop = self.position[1] - self.size/2 <= 0 and self.velocity[1] < 0
+            if (hitBottom or hitTop):
+                self.position[1] = (self.size/2 if hitTop else h-self.size/2)
+                self.velocity[1] *= -1
     
     def computeNeighbours(self, boids):
         neighbours = []
@@ -245,6 +282,11 @@ class Boid():
         else:
             #print("Failed to merge flocks. Not the same species")
             return False
+
+    def leaveFlock(self):
+        self.flock.remove_member(self)
+        self.flock = Flock(species=self.species, members=[self])
+        
 
     def keepDistance(self):
         if len(self.neighbours) == 0:
@@ -313,12 +355,97 @@ class Boid():
         if ssq(change) > 1:
             return unit(change)
         return change
+   
+    def gotoGoal(self):
+        desiredVelocity = self.goal - self.position
+       
+        if ssq(desiredVelocity) > behaviours[self.species]["cruising-speed"][4]:
+            desiredVelocity = unit(desiredVelocity)*behaviours[self.species]["cruising-speed"][4]
+
+        change = (desiredVelocity- self.velocity)/(behaviours[self.species]["max-velocity"][4]/2)
+        
+        if magnitude(change) > 1:
+            return unit(change)
+        
+        return change
+   
+    def navigateTerrain(self, terrain):
+        grad = terrain.gradientField[int(self.position[1])][int(self.position[0])]
+        # print(f"grad at ({self.position[0]}{self.position[1]}):", grad)
+        slope = magnitude(grad)
+        
+        F = np.array([0,0], dtype=float)
+        if slope > 0:
+            # component of velocity parallel to the gradient
+            vdotg = dot(self.velocity, grad)
+            
+            if vdotg > 0: #boid travelling uphill
+                F = (-behaviours[self.species]["drag-factor"][4]*vdotg / slope)*grad
+                
+            elif vdotg < 0: # boid travelling downhill
+                F = (-(behaviours[self.species]["drag-factor"][4]/5)*vdotg / slope)*grad  #downhill dragfactor = dragfactor/5
+            
+            self.netForce += F
+            
+            
+            
         
 #### SPECIES CLASSES ###############
 class Sheep(Boid):
     def __init__(self, pos):
         print(f"Creating sheep at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Sheep", pos=pos)
+    
+    def update(self, boids, terrain, dt):
+        self.neighbours = self.computeNeighbours(boids)
+        for neighbour in self.neighbours:
+            if self.mergeFlock(neighbour):
+                break
+            
+        self.flockNeighbours = self.computeNeighbours(self.flock.members)
+        
+        #if no flockNeighbours, leave flock
+        if len(self.flockNeighbours) == 0:
+            self.leaveFlock()
+        
+        #flocking behaviours
+        self.updateBehaviours()    
+        self.updateAcceleration()
+        
+        #terrain navigation behaviour
+        self.navigateTerrain(terrain)
+        self.updateAcceleration()
+        
+        self.updateVelocity(dt)
+        self.updatePosition(terrain, dt)
+    
+    def updateBehaviours(self):
+        """Update the boid's behaviours based on its current state."""
+        self.netForce = self.navigator()
+        
+    def navigator(self):
+        acc = np.array([0, 0], dtype=float)
+        mag = 0
+        
+        # mag = accumulate(acc, self.avoidObstacles())
+        if mag < 1:
+            mag = accumulate(acc, self.keepDistance())
+        
+        if mag < 1:
+            mag = accumulate(acc, self.matchHeading())   
+            
+        if mag < 1:
+            mag = accumulate(acc, self.steerToCenter())
+        if mag < 1 and self.goal is not None:
+            mag = accumulate(acc, self.gotoGoal())    
+        
+        acc *= behaviours[self.species]["max-acceleration"][4]*self.mass  # Scale by max acceleration * mass
+        return acc
+
+class Penguin(Boid):
+    def __init__(self, pos):
+        print(f"Creating sheep at position: ({pos[0]},{pos[1]})")
+        super().__init__(species="Penguin", pos=pos)
     
     def update(self, boids, dt):
         self.neighbours = self.computeNeighbours(boids)
@@ -356,6 +483,7 @@ class Sheep(Boid):
         acc *= behaviours[self.species]["max-acceleration"][4]*self.mass  # Scale by max acceleration * mass
         return acc
 
+
 # FLOCK CLASS
 class Flock:
     def __init__(self, species, members):
@@ -382,8 +510,6 @@ class Flock:
         if boid in self.members:
             self.members.remove(boid)
             self.size = len(self.members)  # Update size based on actual list length
-            # Create new single-member flock for the removed boid
-            new_flock = Flock(species=self.species, members=[boid])
             return True
         return False
     

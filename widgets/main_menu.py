@@ -27,5 +27,8 @@ class MainMenu(tk.Tk):
 
         exitBtn = tk.Button(self, text='Exit', width=25, command=sys.exit)
         exitBtn.pack(pady=5)
+        
+        # Bind the close event to the destroy method
+        self.protocol("WM_DELETE_WINDOW", sys.exit)
 
         self.mainloop()
