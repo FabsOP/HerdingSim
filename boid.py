@@ -147,7 +147,7 @@ class Boid():
         self.image = None
         self.tkImage = None
         self.imagePath = None
-        # self.canvasId = None
+        self.canvasId = None
         
         self.flock = Flock(species, members=[self])
         self.neighbours = []
@@ -288,7 +288,7 @@ class Boid():
         self.flock = Flock(species=self.species, members=[self])
         
 
-    def keepDistance(self, terrain):
+    def keepDistance(self):
         if len(self.neighbours) == 0:
             return np.array([0,0], dtype=float)
         
@@ -297,13 +297,8 @@ class Boid():
             #vector pointing to the other boid
             dist = neighbour.position - self.position
             mag2 = ssq(dist)
-            
-            czTerrainScaled = terrain.scaleWithHeight(behaviours[self.species]["comfort-zone"][4]/3, behaviours[self.species]["comfort-zone"][4], self.position)
-            dzTerrainScaled = terrain.scaleWithHeight(behaviours[self.species]["danger-zone"][4]/3, behaviours[self.species]["danger-zone"][4], self.position)
-            
-            comfortZone2 = czTerrainScaled**2
-            dangerZone2 = dzTerrainScaled**2
-            
+            comfortZone2 = behaviours[self.species]["comfort-zone"][4]**2
+            dangerZone2 = behaviours[self.species]["danger-zone"][4]**2
             if mag2 < comfortZone2:
                 # other boid is too close push away
                 # decide how strongly to accelerate away
@@ -414,7 +409,7 @@ class Sheep(Boid):
             self.leaveFlock()
         
         #flocking behaviours
-        self.updateBehaviours(terrain)    
+        self.updateBehaviours()    
         self.updateAcceleration()
         
         #terrain navigation behaviour
@@ -424,17 +419,17 @@ class Sheep(Boid):
         self.updateVelocity(dt)
         self.updatePosition(terrain, dt)
     
-    def updateBehaviours(self, terrain):
+    def updateBehaviours(self):
         """Update the boid's behaviours based on its current state."""
-        self.netForce = self.navigator(terrain)
+        self.netForce = self.navigator()
         
-    def navigator(self,terrain):
+    def navigator(self):
         acc = np.array([0, 0], dtype=float)
         mag = 0
         
         # mag = accumulate(acc, self.avoidObstacles())
         if mag < 1:
-            mag = accumulate(acc, self.keepDistance(terrain))
+            mag = accumulate(acc, self.keepDistance())
         
         if mag < 1:
             mag = accumulate(acc, self.matchHeading())   

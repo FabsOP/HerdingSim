@@ -22,7 +22,6 @@ class Terrain:
         self.gradientField = np.zeros((h, w,2), dtype=float)  # 2D gradient field (dx, dy)
         self.width = w
         self.height = h
-        self.maxHeight = 0.0
         
         self.contourImg = None
         self.heightmapImg = None
@@ -35,11 +34,6 @@ class Terrain:
         """
         if greyscaleImagePath:
             self.heightmap, self.heightmapImg = self.getHeightmap(greyscaleImagePath, self.width, self.height)
-            
-            #find the maximum height in the heightmap
-            self.maxHeight = np.max(self.heightmap)
-            print(f"Heightmap loaded from {greyscaleImagePath} with shape: {self.heightmap.shape}")
-            print(f"Maximum height in the heightmap: {self.maxHeight}")
         
         self.gradientField = self.generateGradientField()
     
@@ -129,17 +123,6 @@ class Terrain:
                 gradient_field[y, x] = -1*self.compute_gradient(x, y)
 
         return gradient_field
-    
-    def scaleWithHeight(self, lowerBound, var, position):
-        """
-        Scales a variable based on the height at a given position in the heightmap.
-        :param min: Minimum value to return if the height is at its minimum.
-        :param var: Variable to scale based on the height.
-        :param position: Tuple (x, y) representing the position in the heightmap.
-        :return: Scaled variable based on the height at the given position.
-        """
-        factor = (255 - self.heightmap[int(position[1]), int(position[0])]) / 255
-        return max(lowerBound, factor * var)
     
     
 if __name__ == "__main__":
