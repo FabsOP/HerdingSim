@@ -46,6 +46,7 @@ class SimCanvas(tk.Canvas):
                          relief="sunken",
                          highlightthickness=1.5
                          )
+        
         self.grid(row=0, column=0, padx=20, pady=(20, 0), sticky="nsew")
         self.spawned_boids = {species: [] for species in behaviours.keys()}
         self.obstacles = []
@@ -57,15 +58,20 @@ class SimCanvas(tk.Canvas):
         self.bgPhotoID = None
         
         self.terrain = terrain
+        self.isPainting = False
+        
         self.waypoints = {species: None for species in behaviours.keys()}
         self.waypointImages = {"Sheep": ImageTk.PhotoImage(Image.open(f"icons/sheep_waypoint.png").resize((30, 30)))}
         
-        if terrain.contourImg is not None:
-            self.setBgImage(terrain.contourImg)
+        
+        self.setBgImage(terrain.contourImg)
         
 
         ### EVENT BINDINGS
         self.bind("<Button-1>", self.handleClick)
+        
+        #handle button 1 release
+        self.bind("<ButtonRelease-1>", self.handleReleaseClick)
         
         self.bind('<Motion>', self.handleHover)     
         self.bind('<Enter>', self.handleHover)  # handle <Alt>+<Tab> switches between windows
@@ -82,16 +88,7 @@ class SimCanvas(tk.Canvas):
     def setBgImage(self, bgImage):
         self.bgPhoto = ImageTk.PhotoImage(bgImage)
         self.bgPhotoID = self.create_image(0, 0, anchor=tk.NW, image=self.bgPhoto)
-    
-    def clear_canvas(self,excl=None):
-        if excl is None:
-            self.delete("all")
-            
-        all_items = self.find_all()
-        for item in all_items:
-            if item not in excl:
-                self.delete(item)
-        
+        self.lower(self.bgPhotoID)  # Ensure the background image is at the bottom layer        
     
     #update canvas
     def update(self, fps,ti):
@@ -183,6 +180,8 @@ class SimCanvas(tk.Canvas):
         elif self.controller.get_selected_terrain() is not None:
             terrain = self.controller.get_selected_terrain()
             print(f"Painting {terrain} at: ({e.x}, {e.y})")
+            self.isPainting = True
+            print("isPainting:", self.isPainting)
             
             # #paint terrain
             #draw placeable terrain
@@ -195,37 +194,51 @@ class SimCanvas(tk.Canvas):
                 if image:
                     # draw image
                     self.create_image(e.x, e.y, image=tkImage)
-            
-            if terrain in ["Tall Grass"]:
-                size = obstacles[terrain]["size"]         
-                
-                image = Image.open(f"./icons/tallGrass.png").resize((size, size)).convert("RGBA")
-                # Set alpha to 80% (204 out of 255)
-                alpha = image.split()[3].point(lambda p: int(p * 0.8))
-                image.putalpha(alpha)
-                tkImage = ImageTk.PhotoImage(image)
-                self.obstacles.append((terrain, e.x, e.y, tkImage))
-                if image:
-                    # draw image at the top of the z-index
-                    self.create_image(e.x, e.y, image=tkImage, tags="tall_grass")
-                    self.tag_raise("tall_grass")
                     
-            
-   
+            if terrain in ["Sand"]:
+                #loop through all pixels in the paint window circle
+                self.fill_paint_window(e, terrain)
+        
+    def fill_paint_window(self, e, terrain_type):
+        shape = self.terrain.contourImg.size
+        radius = paintWindowWidth // 2
+        radius_sq = radius * radius 
+        
+        mask = np.zeros(shape, dtype=bool)
+        x_start = max(0, e.x - radius)
+        x_end = min(self.width + 4, e.x + radius)
+        y_start = max(0, e.y - radius)
+        y_end = min(self.height + 4, e.y + radius)
+        
+        for x in range(x_start, x_end):
+            for y in range(y_start, y_end):
+                if (x - e.x) ** 2 + (y - e.y) ** 2 <= radius_sq:
+                    mask[y, x] = True
+        # Convert mask to a list of coordinates
+        
+        self.terrain.color_region(mask, terrain_type)
+        self.setBgImage(self.terrain.contourImg)  # Update the background image to reflect the changes
+        
+                    
     def handleHover(self, e):
         # print(f"Mouse coordinates ({e.x} {e.y})")
         
-        if self.controller.get_selected_animal() != None:
+        if self.controller.get_selected_animal() != None or self.controller.get_selected_terrain() in ["Tree", "Stone", "Tall Grass"]:
             self.config(cursor="hand2")
         
-        elif self.controller.get_selected_terrain() != None:
+        elif self.controller.get_selected_terrain() not in ["Tree", "Stone", "Tall Grass", None]:
             self.config(cursor="none")
             #delete previous window
             self.delete(self.windowRec)
             
             #draw new window
-            self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
-            #self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+            # self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
+            
+            if self.isPainting:
+                self.fill_paint_window(e, self.controller.get_selected_terrain())
+                self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#FF0000", width=5 )
+            else:
+                self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
         else:
             self.config(cursor="arrow")
      
@@ -248,8 +261,8 @@ class SimCanvas(tk.Canvas):
             self.delete(self.windowRec)
             
             #draw new window
-            self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
-            # self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+            #self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
+            self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
             
     def handleRightClick(self,e):
         #right click to place waypoint
@@ -267,3 +280,18 @@ class SimCanvas(tk.Canvas):
             print(f"Placing waypoint for {selectedSpecies} at: ({pos[0]}, {pos[1]})")
             self.waypoints[selectedSpecies] = np.array(pos, dtype=float)
             self.create_image(pos[0], pos[1], image=self.waypointImages[selectedSpecies], tags="waypoint")
+        
+            
+    def handleReleaseClick(self, e):
+        #print(f"Mouse released at ({e.x}, {e.y})")
+        self.isPainting = False
+        print("Mouse released")
+        print("isPainting:", self.isPainting)
+        
+    def handleReleaseClickRight(self, e):
+        #print(f"Mouse released at ({e.x}, {e.y})")
+        self.isErasing = False
+        print("Mouse released")
+        print("isErasing:", self.isErasing)
+
+        

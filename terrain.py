@@ -1,12 +1,30 @@
-from PIL import ImageDraw
-
 import tkinter as tk
 import numpy as np
 import os
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw
+
+
+color_map = {
+    "Grass": {
+        "bg_color": "#B9D8B2",
+        "shade_color": "#000000",
+    },
+    "Sand": {
+        "bg_color": "#FBDB93",
+        "shade_color": "#7B4019",
+    },
+    "Ice": {
+        "bg_color": "#84E3F0",
+        "shade_color": "#103436",
+    },
+    "Shallows": {
+        "bg_color": "#1461A0",
+        "shade_color": "#09263D",
+    },
+}
 
 class Terrain:
-    def __init__(self, w, h):
+    def __init__(self, w, h, invert=True):
         """
         Initializes the Terrain object with a heightmap from a greyscale image.
         
@@ -16,26 +34,67 @@ class Terrain:
         """
         
         assert w > 0 and h > 0, "Width and height must be positive integers."
-        assert w == h, "Width and height must not be equal."
+        assert w == h, "Width and height must be equal."
         
-        self.heightmap = np.zeros((h, w), dtype=np.float32)
-        self.gradientField = np.zeros((h, w,2), dtype=float)  # 2D gradient field (dx, dy)
-        self.width = w
-        self.height = h
+        self.invert = invert  # Invert the greyscale and gradients for better visualization
+        
+        self.heightmap = np.zeros((int(h), int(w)), dtype=np.float32)
+        self.gradientField = np.zeros(self.heightmap.shape, dtype=float)  # 2D gradient field (dx, dy)
+        self.width = int(w)
+        self.height = int(h)
         
         self.contourImg = None
+        self.terrainType = "Grass"  # Default terrain type
+        
+        self.typegrid = np.zeros(self.heightmap.shape, dtype="S")  # RGB grid for terrain coloring
+        
+        self.contourImgs = {
+            "Grass": None,
+            "Sand": None,
+            "Ice": None,
+            "Shallows": None
+        }
+        
         self.heightmapImg = None
         
-    def load(self, greyscaleImagePath):
+        self.contour_levels = 15  
+        
+    def load(self, greyscaleImagePath=None, terrainType="Grass", levels=15):
         """
         Loads the heightmap from a greyscale image file.
         
         :param greyscaleImagePath: Path to the greyscale image file.
         """
+        print(f"Loading terrain from {greyscaleImagePath} with size ({self.width}, {self.height}) and terrain type '{terrainType}'")
         if greyscaleImagePath:
             self.heightmap, self.heightmapImg = self.getHeightmap(greyscaleImagePath, self.width, self.height)
         
+        if self.invert:
+            # Invert the heightmap for better visualization
+            self.heightmap = 255 - self.heightmap
+        
         self.gradientField = self.generateGradientField()
+        
+        #generate contour map images for each terrain type
+        assert terrainType in color_map, f"Unknown terrain type: {terrainType}"
+        
+        self.terrainType = terrainType
+        
+        for terrain, colors in color_map.items():
+            bg_color = colors["bg_color"]
+            shade_color = colors["shade_color"]
+            contour_img = self.generate_contour_map(bg_color, levels=levels, shade_color=shade_color)
+            self.contourImgs[terrain] = contour_img
+        self.contourImg = self.contourImgs[terrainType]
+        
+        # update the typegrid with the terrain type
+        self.typegrid.fill(terrainType.encode('utf-8'))
+        
+        print(f"Terrain loaded with heightmap shape: {self.heightmap.shape}")
+        print(f"Terrain loaded with gradient field shape: {self.gradientField.shape}")
+        print(f"Contour map generated for terrain type: {terrainType} with {levels} levels.")
+        
+        
     
     def getHeightmap(self, greyscaleImagePath, w, h):
         """
@@ -70,9 +129,10 @@ class Terrain:
         return tuple(int(color1[i] + (color2[i] - color1[i]) * t) for i in range(3))
     
     def generate_contour_map(self, bg_color, levels=10, shade_color="#000000"):
-        assert self.heightmapImg is not None, "Heightmap image not loaded."
 
         gray_data = self.heightmap
+        
+        self.contour_levels = levels
 
         bg_rgb = self.hex_to_rgb(bg_color)
         shade_rgb = self.hex_to_rgb(shade_color)
@@ -91,9 +151,35 @@ class Terrain:
             fill_color = self.interpolate_color(bg_rgb, shade_rgb, t * 0.7)  # 0.7 to avoid going full black
             color_data[mask] = fill_color
 
-        self.contourImg = Image.fromarray(color_data)
         print(f"Contour map generated with {levels} levels.")
+        return Image.fromarray(color_data)
+        
 
+    def color_region(self, mask, terrain_type="desert"):
+        """
+        Colors a region of the heightmap based on a mask.
+        
+        :param mask: 2D numpy array of boolean values indicating the region to color.
+        :param terrain_type: Type of terrain to color (e.g., "desert", "ice", "shallows").
+        """
+        assert mask.shape == self.heightmap.shape, "Mask shape must match heightmap shape."
+        
+        contourImage = np.array(self.contourImg)
+        
+        #replace the current contour image pixels with the saved contour image corresponding to the terrain type according to the mask
+        # in one go with vectorized operations
+        
+        otherContourImage = np.array(self.contourImgs[terrain_type])
+        mask_indices = np.where(mask)
+        # Color the pixels in the contour image based on the mask
+        contourImage[mask_indices] = otherContourImage[mask_indices]
+
+        # Update the contour image with the new colored region
+        self.contourImg = Image.fromarray(contourImage)
+        
+        #update the typegrid with the terrain type
+        self.typegrid[mask_indices] = terrain_type.encode('utf-8')
+    
     def compute_gradient(self, x, y):
         h, w = self.heightmap.shape
         
@@ -124,59 +210,3 @@ class Terrain:
 
         return gradient_field
     
-    
-if __name__ == "__main__":
-    terrain = Terrain(2*256, 2*256)
-    terrain.load("terrain/small4(512)(512)(0.4572)(699.7683454453672).png")
-    terrain.generate_contour_map(bg_color="#B9D8B2", levels=15, shade_color="#000000")
-    print("Terrain.heightmap shape:", terrain.heightmap.shape)
-    print("Terrain.heightmap:", terrain.heightmap)
-    print()
-    
-
-    # Display the contour map
-    root = tk.Tk()
-    contour_img_tk = ImageTk.PhotoImage(terrain.contourImg)
-    label = tk.Label(root, image=contour_img_tk)
-    label.pack()
-    #print height of mouse
-    
-    def on_mouse_move(event):
-        x, y = event.x, event.y
-        if 0 <= x < terrain.width and 0 <= y < terrain.height:
-            height = terrain.heightmap[y, x]
-            gradient = terrain.gradientField[y][x]
-            print(f"Mouse at ({x}, {y}) - Height: {height}")
-            print(f"Mouse at ({x}, {y}) - Gradient: {gradient}")
-
-            # Draw the gradient vector as an arrow on a copy of the contour image
-            img_with_arrow = terrain.contourImg.copy()
-            draw = ImageDraw.Draw(img_with_arrow)
-
-            # Scale the gradient for visualization
-            scale = 20  # Adjust as needed
-            dx, dy = gradient
-            end_x = int(x + dx * scale)
-            end_y = int(y + dy * scale)
-
-            # Draw arrow (line + head)
-            draw.line([(x, y), (end_x, end_y)], fill=(255, 0, 0), width=2)
-            # Draw arrowhead
-            arrow_size = 6
-            angle = np.arctan2(dy, dx)
-            left = (end_x - arrow_size * np.cos(angle - np.pi / 6),
-                    end_y - arrow_size * np.sin(angle - np.pi / 6))
-            right = (end_x - arrow_size * np.cos(angle + np.pi / 6),
-                    end_y - arrow_size * np.sin(angle + np.pi / 6))
-            draw.polygon([ (end_x, end_y), left, right ], fill=(255, 0, 0))
-
-            # Update the Tkinter image
-            img_tk = ImageTk.PhotoImage(img_with_arrow)
-            label.config(image=img_tk)
-            label.image = img_tk  # Prevent garbage collection
-
-    root.bind("<Motion>", on_mouse_move)
-    root.mainloop()
-    
-    
-

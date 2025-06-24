@@ -9,8 +9,19 @@ from mutagen.mp3 import MP3
 import random
 
 import time
+from terrain import Terrain
 
 #### HELPER FUNCTIONS ###################
+def generateTerrain(terrainSize, terrainType, heightMapPath=None, levels=15, invert=True):
+    """
+    Generates a terrain based on the given parameters.
+    """
+    canvasMultiplier = {"small": 1.5, "large": 2}
+    terrain = Terrain(int(256*canvasMultiplier[terrainSize]), int(256*canvasMultiplier[terrainSize]), invert=invert)
+    terrain.load(heightMapPath, terrainType, levels=levels)
+    return terrain
+
+
 def playSong(songIdx):
     pygame.mixer.music.load(playlist[songIdx][0])
     pygame.mixer.music.set_volume(playlist[songIdx][1])
@@ -44,9 +55,14 @@ if __name__ == "__main__":
     MainMenu()
     
     terrainSize = "large"
+    terrainType = "Sand"  # Options: "Grass", "Sand", "Ice", "Shallows"
+    invert = True  # Invert the greyscale and gradients for better visualization
+    nContours = 15
     heightMapPath = r"terrain\small4(512)(512)(0.4572)(699.7683454453672).png"
+    terrain = generateTerrain(terrainSize, terrainType, heightMapPath, nContours, invert=invert)
     
-    s = Simulation(terrainSize, heightMapPath)
+    # Create the simulation with the generated terrain
+    s = Simulation(terrainSize, terrain)
     scheduleNextSong(s)
     s.canvas.update(60, ti=time.time())
     s.mainloop()
