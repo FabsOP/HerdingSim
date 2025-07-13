@@ -19,13 +19,15 @@ class TerrainTab(tk.Frame):
         terrain_btn_frame.pack()
         
         ## generate btn grid of icons
-        btnIcons = [("icons/sand.png", "Sand", "From the desert"),
-                    ("icons/tree.png", "Tree", "Great shelter"),
-                    ("icons/tallGrass.png", "Tall Grass", "Perfect for hiding. Predators and prey use it strategically."),
-                    ("icons/shallowWater.png", "Shallows" ,"Slows movement for non-aquatic animals. Semi-aquatic creatures thrive."),
-                    ("icons/sea.png", "Sea" ,"Only strong swimmers venture here. Dangerous for land animals."),
-                    ("icons/stone.png", "Stone", "Hard terrain. Difficult to cross"),
+        btnIcons = [
+                    ("icons/grass.png", "Grass", "A lush green terrain, perfect for grazing animals."),
+                    ("icons/sand.png", "Sand", "A dry, sandy terrain, suitable for desert animals."),
+                    ("icons/rock.png", "Rock", "A rocky terrain, difficult to traverse"),
                     ("icons/ice.png", "Ice", "Careful, it's slippery"),
+                    ("icons/snow.png", "Snow", "Snowy terrain, slows down movement"),
+                    ("icons/shallowWater.png", "Water" ,"Slows movement for non-aquatic animals. Semi-aquatic creatures thrive."),
+                    ("icons/tallGrass.png", "Tall Grass", "Perfect for hiding. Predators and prey use it strategically."),
+                    ("icons/tree.png", "Tree", "Provides shade and shelter. Animals can climb or hide."),
                     ("icons/fence.png", "Fence", "Keep things in... or out")]
         
         for i, icon in enumerate(btnIcons):

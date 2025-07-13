@@ -15,7 +15,7 @@ class SpeciesTab(tk.Frame):
         btnIcons = [("icons/sheep.png", "Sheep", "Like grass"),
                     ("icons/penguin.png", "Penguin", "Great swimmers"),
                     ("icons/rabbit.png", "Bunny", "Like carrots"),
-                    ("icons/lion.png", "Lion", "Like meat"),
+                    ("icons/elephant.png", "Elephant", "Large, friendly herbivores"),
                     ("icons/fox.png", "Fox", "Fave food: rabbits"),
                     ("icons/fish.png", "Fish", "Excellent in deep and shallow waters, avoid land completely")]
         

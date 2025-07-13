@@ -45,18 +45,21 @@ playlist = [("audio/music/answers-from-angels-333760.mp3",0.02, MP3("audio/music
             ("audio/music/lost-in-summer-232501.mp3",0.04, MP3("audio/music/lost-in-summer-232501.mp3").info.length),
             ("audio/music/infinityBetweenUs.mp3",0.1, MP3("audio/music/infinityBetweenUs.mp3").info.length),
             ("audio\music\medieval-ambient-236809.mp3", 0.1, MP3("audio/music/medieval-ambient-236809.mp3").info.length),
-            ("audio\music\chill-lofi-316579.mp3", 0.1, MP3("audio\music\chill-lofi-316579.mp3").info.length)]  #[(song path, volume, duration(s)),..]
+            ("audio\music\chill-lofi-316579.mp3", 0.1, MP3("audio\music\chill-lofi-316579.mp3").info.length),
+            ("audio\music\ethereal-nature.mp3", 0.1, MP3("audio\music\ethereal-nature.mp3").info.length),
+            ("audio/music/flash-news.mp3", 0.1, MP3("audio/music/flash-news.mp3").info.length),
+            ("audio\music\mystical-world.mp3", 0.1, MP3("audio\music\mystical-world.mp3").info.length)]  #[(song path, volume, duration(s)),..]
 random.shuffle(playlist)
 
 pygame.mixer.init()
 
 ### MAIN CODE ######################################################
 if __name__ == "__main__":
-    MainMenu()
+    m = MainMenu()
     
-    terrainSize = "large"
-    terrainType = "Sand"  # Options: "Grass", "Sand", "Ice", "Shallows"
-    invert = True  # Invert the greyscale and gradients for better visualization
+    terrainSize = "large"  # Options: "small", "large"
+    terrainType = "Grass"  # Options: "Grass", "Sand", "Ice", "Shallows"
+    invert = True  # Invert the greyscale for better visualization
     nContours = 15
     heightMapPath = r"terrain\small4(512)(512)(0.4572)(699.7683454453672).png"
     terrain = generateTerrain(terrainSize, terrainType, heightMapPath, nContours, invert=invert)

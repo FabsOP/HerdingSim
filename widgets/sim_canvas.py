@@ -11,10 +11,10 @@ from vector import vectorAngle
 
 import random
 
-paintWindowWidth = 55
-paintWindowStep = 5
+paintWindowWidth = 60
+paintWindowStep = 10
 
-borderMode = "Bounce"
+borderMode = "Wrap"
 
 testMode = True
 
@@ -49,7 +49,7 @@ class SimCanvas(tk.Canvas):
         
         self.grid(row=0, column=0, padx=20, pady=(20, 0), sticky="nsew")
         self.spawned_boids = {species: [] for species in behaviours.keys()}
-        self.obstacles = []
+        self.obstacles = []     # [(obstacle_type, e.x, e.y, tkImage), ..]
         self.controller = controller
         self.mediaController = mediaController
         self.windowRec = None
@@ -61,10 +61,13 @@ class SimCanvas(tk.Canvas):
         self.isPainting = False
         
         self.waypoints = {species: None for species in behaviours.keys()}
-        self.waypointImages = {"Sheep": ImageTk.PhotoImage(Image.open(f"icons/sheep_waypoint.png").resize((30, 30)))}
+        self.waypointImages = {"Sheep": ImageTk.PhotoImage(Image.open(f"icons/sheep_waypoint.png").resize((30, 30))),
+                               "Penguin": ImageTk.PhotoImage(Image.open(f"icons/penguin_waypoint.png").resize((30, 30))),
+                               "Fox": ImageTk.PhotoImage(Image.open(f"icons/fox_waypoint.png").resize((30, 30))),}
         
         
         self.setBgImage(terrain.contourImg)
+        self.paintBucketIcon = ImageTk.PhotoImage(Image.open("icons/paint-bucket.png").resize((10, 10)))
         
 
         ### EVENT BINDINGS
@@ -93,6 +96,8 @@ class SimCanvas(tk.Canvas):
     #update canvas
     def update(self, fps,ti):
         self.delete("visual_param")
+        # self.delete("boid")
+        self.delete("paint_bucket")
         
         tf = time.time()
         dt = tf-ti
@@ -104,9 +109,10 @@ class SimCanvas(tk.Canvas):
                 self.visualizeParams()               
                 if not self.mediaController.isPaused:
                     allBoids = list(itertools.chain.from_iterable(self.spawned_boids.values()))  # Flatten the list of boids
-                    animal.update(allBoids, self.terrain, dt)
+                    animal.update(allBoids, self.terrain, self.obstacles, dt)
                     animal.setGoal(self.waypoints[species])
                     animal.handleBorder(borderMode,w=self.width,h=self.height)
+                # draw animal
                 self.coords(animal.canvasId, animal.position[0], animal.position[1])
         
         
@@ -158,6 +164,7 @@ class SimCanvas(tk.Canvas):
                     
     # event handlers
     def handleClick(self, e):
+        ### ANIMAL SPAWNING 
         if self.controller.get_selected_animal() is not None:
             pos = (e.x,e.y)
             selectedSpecies = self.controller.get_selected_animal()
@@ -177,14 +184,15 @@ class SimCanvas(tk.Canvas):
                     self.spawned_boids[selectedSpecies].append(animal)
                 else: 
                     print("Failed to draw")
+                    
+        ### TERRAIN AND OBSTACLE PAINTING            
         elif self.controller.get_selected_terrain() is not None:
             terrain = self.controller.get_selected_terrain()
             print(f"Painting {terrain} at: ({e.x}, {e.y})")
             self.isPainting = True
             print("isPainting:", self.isPainting)
             
-            # #paint terrain
-            #draw placeable terrain
+            # a) IF AN OBSTACLE IS SELECTED
             if terrain in ["Tree", "Stone"]:
                 size = obstacles[terrain]["size"]         
                 
@@ -195,9 +203,14 @@ class SimCanvas(tk.Canvas):
                     # draw image
                     self.create_image(e.x, e.y, image=tkImage)
                     
-            if terrain in ["Sand"]:
-                #loop through all pixels in the paint window circle
-                self.fill_paint_window(e, terrain)
+            # b) OTHERWISE IF A TERRAIN TYPE IS SELECTED        
+            else:
+                #paint contour
+                if paintWindowWidth == 0:
+                    self.color_contour(e, terrain)
+                else:
+                    #loop through all pixels in the paint window circle
+                    self.fill_paint_window(e, terrain)
         
     def fill_paint_window(self, e, terrain_type):
         shape = self.terrain.contourImg.size
@@ -219,9 +232,14 @@ class SimCanvas(tk.Canvas):
         self.terrain.color_region(mask, terrain_type)
         self.setBgImage(self.terrain.contourImg)  # Update the background image to reflect the changes
         
+    def color_contour(self, e, terrain_type):
+        self.terrain.contourFill(e.x,e.y, terrain_type)
+        self.setBgImage(self.terrain.contourImg) # Update the background image to reflect the changes
+        
                     
     def handleHover(self, e):
-        # print(f"Mouse coordinates ({e.x} {e.y})")
+        # print(f"Type at ({e.x} {e.y}): {self.terrain.typeAt(e.x, e.y)}")
+        print(f"Height at ({e.x} {e.y}): {self.terrain.heightAt(e.x, e.y)}")
         
         if self.controller.get_selected_animal() != None or self.controller.get_selected_terrain() in ["Tree", "Stone", "Tall Grass"]:
             self.config(cursor="hand2")
@@ -238,6 +256,8 @@ class SimCanvas(tk.Canvas):
                 self.fill_paint_window(e, self.controller.get_selected_terrain())
                 self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#FF0000", width=5 )
             else:
+                if paintWindowWidth == 0:
+                    self.create_image(e.x, e.y, image=self.paintBucketIcon, tags="paint_bucket")
                 self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
         else:
             self.config(cursor="arrow")
@@ -251,7 +271,7 @@ class SimCanvas(tk.Canvas):
         if self.controller.get_selected_terrain() != None:
             if e.num == 4 or e.delta > 0:
                 print(f"Increasing brush size: {paintWindowWidth}")
-                paintWindowWidth = min(150, paintWindowWidth+ paintWindowStep)
+                paintWindowWidth = min(200, paintWindowWidth+ paintWindowStep)
             elif e.num == 5 or e.delta < 0:
                 print("Scrolled down")
                 print(f"decreasing brush size: {paintWindowWidth}")

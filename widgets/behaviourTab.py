@@ -164,7 +164,7 @@ class BehaviourTab(tk.Frame):
             self.sliders[param].set(new_val)
             
             boid.lastModified= {"species": self.selection, "parameter": param, "time": time.time()}
-            updateParamBoundaries()
+            updateParamBoundaries(self.selection)
             self.refresh_sliders()
             
         except ValueError:
@@ -190,7 +190,7 @@ class BehaviourTab(tk.Frame):
         
         # Update dependent parameters
         boid.lastModified = {"species": self.selection, "parameter": param, "time": time.time()}
-        updateParamBoundaries()
+        updateParamBoundaries(self.selection)
         self.refresh_sliders()
 
     def refresh_sliders(self):
