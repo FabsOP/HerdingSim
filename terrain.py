@@ -7,7 +7,7 @@ import math
 
 color_map = {
     "Grass": {
-        "bg_color": "#000000",  
+        "bg_color": "#184D27",  # Darker green
         "shade_color": "#B9D8B2",
     },
     "Sand": {
@@ -19,7 +19,7 @@ color_map = {
         "shade_color": "#84E3F0",
     },
     "Water": {
-        "bg_color": "#000000",
+        "bg_color": "#0A223A",
         "shade_color": "#1461A0",
     },
     "Rock": {
@@ -27,8 +27,9 @@ color_map = {
         "shade_color": "#A9A9A9",
     },
     "Snow": {
-        "bg_color": "#000000",
-        "shade_color": "#FFFFFF", 
+        # Slightly darker bg_color for more range, still snow-like
+        "bg_color": "#7A8FA3",
+        "shade_color": "#FFFFFF",  # Slightly off-white for a softer snow highlight
     },
 }
 

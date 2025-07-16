@@ -58,10 +58,10 @@ if __name__ == "__main__":
     m = MainMenu()
     
     terrainSize = "large"  # Options: "small", "large"
-    terrainType = "Grass"  # Options: "Grass", "Sand", "Ice", "Shallows"
-    invert = True  # Invert the greyscale for better visualization
+    terrainType = "Sand"  # Options: "Grass", "Sand", "Ice", "Shallows"
+    invert = False  # Invert the greyscale for better visualization
     nContours = 15
-    heightMapPath = r"terrain\small4(512)(512)(0.4572)(699.7683454453672).png"
+    heightMapPath = r"terrain\china.png"
     terrain = generateTerrain(terrainSize, terrainType, heightMapPath, nContours, invert=invert)
     
     # Create the simulation with the generated terrain

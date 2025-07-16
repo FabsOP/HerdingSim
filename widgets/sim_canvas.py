@@ -11,7 +11,7 @@ from vector import vectorAngle
 
 import random
 
-paintWindowWidth = 60
+paintWindowWidth = 0
 paintWindowStep = 10
 
 borderMode = "Wrap"
@@ -21,16 +21,48 @@ testMode = True
 
 obstacles = {
     "Tree": {
-        "size": 32
+        "size": 32,
+        "hitbox-radius": 8,
+        "hitbox-offset": [0, 4],
+        "image-terrain-map": {
+            "Grass": "icons/trees/Grass.png",
+            "Sand": "icons/trees/Sand.png",
+            "Ice": "icons/trees/Ice.png",
+            "Water": "icons/trees/Water.png",
+            "Snow": "icons/trees/Snow.png",
+            "Rock": "icons/trees/Rock.png",
+            }
         }
-    , "Stone": {
-        "size": 32
+    , "Boulder": {
+        "size": 32,
+        "hitbox-radius": 16,
+        "hitbox-offset": [0, 0],
+        "image-terrain-map": {
+            "Grass": "icons/boulders/Grass.png",
+            "Sand": "icons/boulders/Sand.png",
+            "Ice": "icons/boulders/Ice.png",
+            "Water": "icons/boulders/Water.png",
+            "Snow": "icons/boulders/Snow.png",
+            "Rock": "icons/boulders/Rock.png",
+            }
+        
         }
-    , "Tall Grass": {
-        "size": 32
+    , "Bush": {
+        "size": 32,
+        "hitbox-radius": 8,
+        "hitbox-offset": [0, 0],
+        "image-terrain-map": {
+            "Grass": "icons/bushes/Grass.png",
+            "Sand": "icons/bushes/Sand.png",
+            "Ice": "icons/bushes/Ice.png",
+            "Water": "icons/bushes/Water.png",
+            "Snow": "icons/bushes/Snow.png",
+            "Rock": "icons/bushes/Rock.png",
+            } 
         }
     
 }
+
 
 #Helper functions
 
@@ -67,7 +99,7 @@ class SimCanvas(tk.Canvas):
         
         
         self.setBgImage(terrain.contourImg)
-        self.paintBucketIcon = ImageTk.PhotoImage(Image.open("icons/paint-bucket.png").resize((10, 10)))
+        self.paintBucketIcon = ImageTk.PhotoImage(Image.open("icons/paint-bucket.png").resize((15, 15)))
         
 
         ### EVENT BINDINGS
@@ -94,29 +126,36 @@ class SimCanvas(tk.Canvas):
         self.lower(self.bgPhotoID)  # Ensure the background image is at the bottom layer        
     
     #update canvas
-    def update(self, fps,ti):
+    def update(self, fps, ti):
         self.delete("visual_param")
-        # self.delete("boid")
-        self.delete("paint_bucket")
-        
+        # self.delete("obstacle_hitbox")  # Remove previous hitbox circles
+
         tf = time.time()
-        dt = tf-ti
+        dt = tf - ti
         dt *= self.mediaController.dtMultiplier
-        
-        #draw animals
+
+        # Draw animals
         for species in self.spawned_boids.keys():
             for animal in self.spawned_boids[species]:
-                self.visualizeParams()               
+                self.visualizeParams()
                 if not self.mediaController.isPaused:
-                    allBoids = list(itertools.chain.from_iterable(self.spawned_boids.values()))  # Flatten the list of boids
+                    allBoids = list(itertools.chain.from_iterable(self.spawned_boids.values()))
                     animal.update(allBoids, self.terrain, self.obstacles, dt)
                     animal.setGoal(self.waypoints[species])
-                    animal.handleBorder(borderMode,w=self.width,h=self.height)
-                # draw animal
+                    animal.handleBorder(borderMode, w=self.width, h=self.height)
                 self.coords(animal.canvasId, animal.position[0], animal.position[1])
-        
-        
-        self.after(int(1000/fps), lambda: self.update(fps, tf))
+
+        # # Draw hitbox circles around each obstacle
+        # for obstacle in self.obstacles:
+        #     _, x, y, hitbox_radius, hitboxOffset,_ = obstacle
+        #     self.create_oval(x - hitbox_radius + hitboxOffset[0], y - hitbox_radius + hitboxOffset[1],
+        #                     x + hitbox_radius + hitboxOffset[0], y + hitbox_radius + hitboxOffset[1],
+        #                     fill=None, outline="#0077FF", width=2, tags="obstacle_hitbox")
+
+        # Raise obstacles to the top layer
+        self.tag_raise("obstacle")
+        self.tag_raise("obstacle_hitbox")
+        self.after(int(1000 / fps), lambda: self.update(fps, tf))
 
     def visualizeParams(self):
         if not testMode: 
@@ -193,15 +232,20 @@ class SimCanvas(tk.Canvas):
             print("isPainting:", self.isPainting)
             
             # a) IF AN OBSTACLE IS SELECTED
-            if terrain in ["Tree", "Stone"]:
+            if terrain in ["Tree", "Boulder", "Bush"]:
                 size = obstacles[terrain]["size"]         
+                terrainType = self.terrain.typeAt(e.x, e.y)
+                imagePath = obstacles[terrain]["image-terrain-map"][terrainType]
+                image = Image.open(imagePath).resize((size, size))
                 
-                image = Image.open(f"./icons/{terrain.lower()}.png").resize((size, size))
                 tkImage = ImageTk.PhotoImage(image)
-                self.obstacles.append((terrain, e.x, e.y, tkImage))
+                hitboxRadius = obstacles[terrain]["hitbox-radius"]
+                hitboxOffset = obstacles[terrain]["hitbox-offset"]
+                self.obstacles.append((terrain, e.x, e.y, hitboxRadius,hitboxOffset, tkImage))
                 if image:
                     # draw image
-                    self.create_image(e.x, e.y, image=tkImage)
+                    self.create_image(e.x, e.y, image=tkImage, tags="obstacle")
+                    
                     
             # b) OTHERWISE IF A TERRAIN TYPE IS SELECTED        
             else:
@@ -241,10 +285,10 @@ class SimCanvas(tk.Canvas):
         # print(f"Type at ({e.x} {e.y}): {self.terrain.typeAt(e.x, e.y)}")
         print(f"Height at ({e.x} {e.y}): {self.terrain.heightAt(e.x, e.y)}")
         
-        if self.controller.get_selected_animal() != None or self.controller.get_selected_terrain() in ["Tree", "Stone", "Tall Grass"]:
+        if self.controller.get_selected_animal() != None or self.controller.get_selected_terrain() in ["Tree", "Boulder", "Bush"]:
             self.config(cursor="hand2")
         
-        elif self.controller.get_selected_terrain() not in ["Tree", "Stone", "Tall Grass", None]:
+        elif self.controller.get_selected_terrain() not in ["Tree", "Boulder", "Bush", None]:
             self.config(cursor="none")
             #delete previous window
             self.delete(self.windowRec)
@@ -257,8 +301,11 @@ class SimCanvas(tk.Canvas):
                 self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#FF0000", width=5 )
             else:
                 if paintWindowWidth == 0:
+                    self.delete("paint_bucket")
                     self.create_image(e.x, e.y, image=self.paintBucketIcon, tags="paint_bucket")
-                self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+                else:
+                    self.delete("paint_bucket")
+                    self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
         else:
             self.config(cursor="arrow")
      
@@ -270,6 +317,7 @@ class SimCanvas(tk.Canvas):
         
         if self.controller.get_selected_terrain() != None:
             if e.num == 4 or e.delta > 0:
+                self.delete("paint_bucket")
                 print(f"Increasing brush size: {paintWindowWidth}")
                 paintWindowWidth = min(200, paintWindowWidth+ paintWindowStep)
             elif e.num == 5 or e.delta < 0:

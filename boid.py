@@ -20,7 +20,7 @@ default_behaviours = {
         "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
         "flockmate-range": [40,200,1,int,40], #[comfort, inf]
         "view-angle": [1, 180,1,int,90],
-        "drag-factor": [0, 100, 1, int, 4]
+        "drag-factor": [0, 55, 1, int, 4]
     },
     "Elephant": {
         "size": 20,
@@ -33,7 +33,7 @@ default_behaviours = {
         "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
         "flockmate-range": [40,200,1,int,40], #[comfort, inf]
         "view-angle": [1, 180,1,int,180],
-        "drag-factor": [0, 100, 1, int, 30],
+        "drag-factor": [0, 55, 1, int, 30],
     },
     "Fox": {
         "size": 10,
@@ -46,7 +46,7 @@ default_behaviours = {
         "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
         "flockmate-range": [40,200,1,int,40], #[comfort, inf]
         "view-angle": [1, 180,1,int,90],
-        "drag-factor": [0, 100, 1, int, 7]
+        "drag-factor": [0, 55, 1, int, 7]
     },
     "Penguin": {
         "size": 8,
@@ -72,7 +72,7 @@ default_behaviours = {
         "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
         "flockmate-range": [40,200,1,int,40], #[comfort, inf]
         "view-angle": [1, 180,1,int,90],
-        "drag-factor": [0, 100, 1, int, 30],
+        "drag-factor": [0, 55, 1, int, 30],
     },
     "Fish": {
         "size": 12,
@@ -85,7 +85,7 @@ default_behaviours = {
         "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
         "flockmate-range": [40,200,1,int,40], #[comfort, inf]
         "view-angle": [1, 180,1,int,90],
-        "drag-factor": [0, 100, 1, int, 30],
+        "drag-factor": [0, 55, 1, int, 30],
     }
 }
 behaviours = copy.deepcopy(default_behaviours)
@@ -257,7 +257,7 @@ class Boid():
             self.leaveFlock()
         
         #flocking behaviours
-        self.updateBehaviours()    
+        self.updateBehaviours(obstacles)    
         self.updateAcceleration()
         
         #terrain navigation behaviour
@@ -267,16 +267,16 @@ class Boid():
         self.updateVelocity(dt)
         self.updatePosition(terrain, dt)
     
-    def updateBehaviours(self):
+    def updateBehaviours(self, obstacles=None):
         """Update the boid's behaviours based on its current state."""
-        self.netForce = self.navigator()
+        self.netForce = self.navigator(obstacles)
         
-    def navigator(self):
+    def navigator(self, obstacles):
         acc = np.array([0, 0], dtype=float)
         mag = 0
         
-        # Priority 1: Avoid obstacles
-        # mag = accumulate(acc, self.avoidObstacles())
+        #Priority 1: Avoid obstacles
+        mag = accumulate(acc, self.avoidObstacles(obstacles))
         
         # priority 2: Maintain distance from flockmates
         if mag < 1:
@@ -397,7 +397,8 @@ class Boid():
     def leaveFlock(self):
         self.flock.remove_member(self)
         self.flock = Flock(species=self.species, members=[self])
-        
+    
+    ### NAVIGATOR FUNCTIONS ##########################################    
     def maintainSpeed(self):
         current_speed = magnitude(self.velocity)
         target_speed = behaviours[self.species]["cruising-speed"][4]
@@ -412,27 +413,7 @@ class Boid():
                 random_angle = np.random.uniform(0, 2 * np.pi)
                 return np.array([np.cos(random_angle), np.sin(random_angle)]) * 0.5
         
-        return np.array([0, 0], dtype=float)
-    
-    def exploreTerrain(self):
-        # if velocity close to zero, add desire to explore
-        if ssq(self.velocity) < 5:
-            print("Exploring terrain")
-            wanderStrength = behaviours[self.species]["curiosity"][4]
-            
-
-            change = wanderStrength * unit(self.velocity)
-            
-            return change
-        else:
-            #print("Not exploring terrain, velocity is sufficient")
-            return np.array([0, 0], dtype=float)
-        
-        
-        
-        
-        
-        
+        return np.array([0, 0], dtype=float)     
 
     def keepDistance(self):
         if len(self.neighbours) == 0:
@@ -510,16 +491,122 @@ class Boid():
 
         change = (desiredVelocity- self.velocity)/(behaviours[self.species]["max-velocity"][4]/2)
         
-        if magnitude(change) > 1:
+        if ssq(change) > 1:
             return unit(change)
         
         return change
     
     def avoidObstacles(self, obstacles=None):
-        pass
+        if obstacles in [None, []]:
+            return np.array([0,0], dtype=float)
+        
+        force = np.array([0,0], dtype=float)
+        closestDistanceSqd = np.inf
+        obstacleFound = False
+        
+        #obstacles = [(obstacle_type, xpos, ypos, radius), ..]
+        for obstacle in obstacles:
+            obstacle_type, xpos, ypos, hitboxRadius, hitboxOffset, _ = obstacle
+            hitboxOffset = np.array(hitboxOffset, dtype=float)
+            
+            # radius not to hit the obstacle
+            radius = hitboxRadius + behaviours[self.species]["size"]/2
+            radius2 = radius**2
+            
+            # vector to center of obstacle
+            d = (np.array([xpos,ypos], dtype=float) + hitboxOffset) - self.position
+            
+            # magnitude of distance squared to obstacle center
+            d2mag = ssq(d)
+            
+            # if current obstacle is not closer than the closest found so far
+            # then it is not a candidate for avoidance
+            if obstacleFound and d2mag > closestDistanceSqd:
+                continue    #with next obstacle
+            
+            # check emergency condition of being too close to the obstacle
+            if d2mag <= radius2:
+                
+                #accerate directly away from the obstacle
+                force = -d*(100*behaviours[self.species]["size"]**2/d2mag)
+                
+                obstacleFound = True
+                closestDistanceSqd = d2mag
+                continue  # no need to check further obstacles
+        
+            # otherwise, we are not colliding yet
+            
+            # check if the direction to the obstacle is behind the boid
+            if dot(d,self.velocity) <= 0:
+                # if the obstacle is behind, ignore it
+                continue
+            
+            # otherwise, we are facing the obstacle
+            
+            #find the projection of the tree onto the line perpendicular to the displacement vector d
+            projected_r = 0
+            
+            if d2mag < 4*radius2:
+                # if the obstacle is close, use a stronger force
+                projected_r = np.sqrt(radius2*d2mag/(d2mag - radius2))
+            elif d2mag < behaviours[self.species]["obstacle-range"][4]**2:
+                #use a bigger radius than actual to give some comfort space
+                projected_r = radius * 1.3
+            else:
+                continue  # if the obstacle is too far, ignore it
+            
+            # Now we want to project the circle of the obstacle onto a line perpedicular to the velocity. 
+            # If the obstacle projects entirely to the left pr to the right of the current position, then the boid will not collide with it.
+            
+            d_unit = unit(d)
+            # rotate d_unit 90 degrees
+            d_unit_rotated = np.array([d_unit[1], -d_unit[0]], dtype=float)
+            
+            # now we find 2 points on either side of the obstacle that we will project
+            point1 = d_unit_rotated * projected_r + d
+            point2 = -d_unit_rotated * projected_r + d
+            
+            # we want a vector perpendicular to the velocity
+            right = np.array([self.velocity[1], -self.velocity[0]], dtype=float)
+            
+            # p1 and p2 are the projections of point1 and point 2
+            p1 = dot(point1, right)
+            p2 = dot(point2, right)
+            
+            # if one projection is positive abd the other is negative, then we're heading towards the obstacle
+            # otherwise we are not
+            if p1 * p2 < 0:
+                #which edge of the obstacle is closer?
+                if abs(p1) > abs(p2):
+                    new_vel = point2
+                else:
+                    new_vel = point1
+                    
+                # set the new velocity magnitude to the current velocity magnitude
+                new_vel = unit(new_vel) * magnitude(self.velocity)
+                
+                # apply force to change the velocity to new
+                # use radius/distance to scale the force so nearer obstacles apply more force
+                
+                
+                force = 10000 *(new_vel - self.velocity) * (radius / np.sqrt(d2mag))
+                obstacleFound = True
+                closestDistanceSqd = d2mag
+                
+        if ssq(force) > 1:
+            return unit(force)   
+        return force
+                
+            
+            
+            
+            
+            
+            
+        
+        
     
     def handleTerrainType(self, terrainType, grad=None):
-        print(f"Handling terrain type: {terrainType} for species {self.species}")
         return False
         
    
@@ -556,7 +643,7 @@ class Sheep(Boid):
         
     def handleTerrainType(self, terrainType,grad):
         if terrainType == "Water":
-            streamStrength = 50
+            streamStrength = 30
             streamForce = streamStrength * unit(grad)
             self.netForce += streamForce
             return True
@@ -568,12 +655,12 @@ class Penguin(Boid):
     def __init__(self, pos):
         print(f"Creating penguin at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Penguin", pos=pos)
-        self.mass = 0.25
+        self.mass = 1
         
     def handleTerrainType(self, terrainType, grad=None):
         if terrainType == "Water":
-            print(f"Applying swimming force.")
-            swimming_strength = 20
+            # print(f"Applying swimming force.")
+            swimming_strength = 5
             swimming_force = swimming_strength * unit(self.velocity)
             self.netForce += swimming_force
             return True
@@ -723,17 +810,7 @@ class Elephant(Boid):
             return unit(change)
         return change
 
-    def exploreTerrain(self):
-        """Override exploration - only the leader should explore."""
-        if self.flock.size <= 1:
-            return super().exploreTerrain()
-            
-        idx = self.flock.members.index(self)
-        if idx == 0:  # Only leader explores
-            return super().exploreTerrain()
-        else:
-            # Followers don't explore on their own
-            return np.array([0, 0], dtype=float)
+
 
 ##### FLOCK CLASS #####################################
 class Flock:
