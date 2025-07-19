@@ -17,7 +17,7 @@ default_behaviours = {
         "cruising-speed": [1,10,1,int,15], #[0,max-velocity,_,_]
         "comfort-zone": [16, 100,1,int,14], #[size, inf,_,_]
         "danger-zone": [16,40,1,int,9], #[size, comfort,_,_]
-        "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
+        "obstacle-range": [16,100,1,int,40], #[size, inf,_,_]
         "flockmate-range": [40,200,1,int,40], #[comfort, inf]
         "view-angle": [1, 180,1,int,90],
         "drag-factor": [0, 55, 1, int, 4]
@@ -191,23 +191,37 @@ def accumulate(accumulatorVector, vectorToAdd):
         return 1
         
 #### BOID FACTORY ####################################################
-def factory(species, pos):
+def factory(species, pos=None, state=None):
+    """Factory function to create a boid of the specified species."""
     if species == "Sheep":
-        return Sheep(pos)
+        animal = Sheep(pos)
+        animal.loadState(state)
+        return animal
+    
     elif species == "Penguin":
-        return Penguin(pos)
+        animal = Penguin(pos)
+        animal.loadState(state)
+        return animal
+        
     elif species == "Fish":
-        return Fish(pos)
+        animal = Fish(pos)
+        animal.loadState(state)
+        return animal
+        
     elif species == "Elephant":
-        return Elephant(pos)
+        animal = Elephant(pos)
+        animal.loadState(state)
+        return animal
+        
     else:
         print("Species not in factory. Instantiating superclass.")
-        return Boid(species=species, pos=pos)
+        animal = Boid(species, pos)
+        animal.loadState(state)
+        return animal
 
 ####### SUPER CLASS ##################################################
 class Boid():
-    def __init__(self, species, pos):
-        print("Creating boid")
+    def __init__(self, species, pos=None):
         self.species = species
         self.mass = 1
         self.size = behaviours[species]["size"]
@@ -225,7 +239,7 @@ class Boid():
         #flags
         self.hasVisableNeighbours = False 
 
-        self.position = np.array([pos[0], pos[1]], dtype=float)
+        self.position = np.array([pos[0], pos[1]], dtype=float) if pos is not None else np.array([0, 0], dtype=float)
         
         randomAngle = np.random.uniform(0, 2 * np.pi)
         self.velocity = (np.random.randint(0,101)/100)*behaviours[self.species]["max-velocity"][4]*np.array([np.cos(randomAngle), np.sin(randomAngle)], dtype=float)
@@ -233,6 +247,24 @@ class Boid():
         self.acceleration = np.array([0, 0], dtype=float)
         self.netForce = np.array([0, 0], dtype=float)
         
+    def getState(self):
+        return {
+            "species": self.species,
+            "position": self.position.copy(),
+            "velocity": self.velocity.copy(),
+            "acceleration": self.acceleration.copy(),
+            "goal": self.goal.copy() if self.goal is not None else None,
+        }
+        
+    def loadState(self, state):
+        if state is None:
+            return 
+        
+        self.species = state["species"]
+        self.position = np.array(state["position"], dtype=float)
+        self.velocity = np.array(state["velocity"], dtype=float)
+        self.acceleration = np.array(state["acceleration"], dtype=float)
+        self.goal = np.array(state["goal"], dtype=float) if state["goal"] is not None else None
         
     def setGoal(self, goal):
         self.goal = goal
@@ -247,7 +279,7 @@ class Boid():
     def update(self, boids, terrain, obstacles, dt):
         self.neighbours = self.computeNeighbours(boids)
         for neighbour in self.neighbours:
-            if self.mergeFlock(neighbour):
+            if self.mergeFlock(neighbour):      #break if flock is merged
                 break
             
         self.flockNeighbours = self.computeNeighbours(self.flock.members)
@@ -638,7 +670,7 @@ class Boid():
 #### SPECIES CLASSES ###############################
 class Sheep(Boid):
     def __init__(self, pos):
-        print(f"Creating sheep at position: ({pos[0]},{pos[1]})")
+        # print(f"Creating sheep at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Sheep", pos=pos)
         
     def handleTerrainType(self, terrainType,grad):
@@ -653,7 +685,7 @@ class Sheep(Boid):
 
 class Penguin(Boid):
     def __init__(self, pos):
-        print(f"Creating penguin at position: ({pos[0]},{pos[1]})")
+        # print(f"Creating penguin at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Penguin", pos=pos)
         self.mass = 1
         
@@ -675,140 +707,19 @@ class Penguin(Boid):
 
 class Fish(Boid):
     def __init__(self, pos):
-        print(f"Creating fish at position: ({pos[0]},{pos[1]})")
+        # print(f"Creating fish at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Fish", pos=pos)
+        
+    #ensure fish only stays in water
+
         
 class Elephant(Boid):
     def __init__(self, pos):
-        print(f"Creating elephant at position: ({pos[0]},{pos[1]})")
+        # print(f"Creating elephant at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Elephant", pos=pos)
         self.mass = 2.0
 
-    def get_formation_target(self):
-        """Get the target position for this elephant in single file formation."""
-        if self.flock.size <= 1:
-            return None
-            
-        idx = self.flock.members.index(self)
-        if idx == 0:  # Leader
-            return None
-            
-        # Follow the elephant in front
-        leader = self.flock.members[idx - 1]
-        
-        # Calculate desired position behind leader
-        if magnitude(leader.velocity) > 0.1:  # Leader is moving
-            offset = -unit(leader.velocity) * (self.size * 2.5)
-        else:
-            # If leader is stationary, use their last known direction
-            if hasattr(leader, 'last_direction') and magnitude(leader.last_direction) > 0:
-                offset = -unit(leader.last_direction) * (self.size * 2.5)
-            else:
-                # Default fallback
-                offset = np.array([-self.size * 2.5, 0], dtype=float)
-                
-        return leader.position + offset
 
-    def steerToCenter(self):
-        """Override cohesion to maintain single file formation."""
-        target_pos = self.get_formation_target()
-        
-        if target_pos is not None:
-            # Steer toward formation position instead of flock center
-            to_target = target_pos - self.position
-            distance = magnitude(to_target)
-            
-            if distance > self.size * 0.5:  # Only if not already in position
-                # Scale force based on distance
-                force_strength = min(distance / (self.size * 4.0), 1.0)
-                change = unit(to_target) * force_strength
-                
-                if ssq(change) > 1:
-                    return unit(change)
-                return change
-        
-        # Fallback to normal cohesion for single elephants
-        return super().steerToCenter()
-
-    def matchHeading(self):
-        """Override alignment to follow the leader's direction."""
-        if self.flock.size <= 1:
-            return super().matchHeading()
-            
-        idx = self.flock.members.index(self)
-        if idx == 0:  # Leader uses normal alignment
-            return super().matchHeading()
-            
-        # Follow the elephant in front
-        leader = self.flock.members[idx - 1]
-        
-        # Store our current direction for followers
-        if magnitude(self.velocity) > 0.1:
-            self.last_direction = unit(self.velocity)
-        
-        # Align with leader's velocity
-        if magnitude(leader.velocity) > 0.1:
-            desired_velocity = unit(leader.velocity) * magnitude(self.velocity)
-        else:
-            # If leader is stationary, maintain current heading
-            if magnitude(self.velocity) > 0.1:
-                desired_velocity = self.velocity
-            else:
-                return np.array([0, 0], dtype=float)
-        
-        change = (desired_velocity - self.velocity) / (behaviours[self.species]["max-velocity"][4] / 2)
-        
-        if ssq(change) > 1:
-            return unit(change)
-        return change
-
-    def keepDistance(self):
-        """Override separation to maintain proper single-file spacing."""
-        if len(self.neighbours) == 0:
-            return np.array([0, 0], dtype=float)
-        
-        change = np.array([0, 0], dtype=float)
-        formation_target = self.get_formation_target()
-        
-        for neighbour in self.neighbours:
-            # Vector pointing to the other boid
-            dist = neighbour.position - self.position
-            mag2 = ssq(dist)
-            
-            # For single file, we want different spacing rules
-            if neighbour.species == "Elephant" and neighbour.flock == self.flock:
-                # Same flock elephant - maintain file spacing
-                ideal_distance = self.size * 2.0
-                ideal_distance2 = ideal_distance ** 2
-                
-                if mag2 < ideal_distance2:
-                    # Too close - push away
-                    pushStrength = (ideal_distance2 - mag2) / ideal_distance2
-                    pushStrength = min(pushStrength, 1.0)
-                    
-                    # But don't push away from our formation target
-                    if formation_target is not None:
-                        to_target = formation_target - self.position
-                        if dot(dist, to_target) > 0:  # Neighbour is between us and target
-                            pushStrength *= 0.3  # Reduced push strength
-                    
-                    dist_unit = unit(dist) * pushStrength
-                    change -= dist_unit
-            else:
-                # Different species or flock - use normal separation
-                comfortZone2 = behaviours[self.species]["comfort-zone"][4] ** 2
-                dangerZone2 = behaviours[self.species]["danger-zone"][4] ** 2
-                
-                if mag2 < comfortZone2:
-                    pushStrength = (comfortZone2 - mag2) / (comfortZone2 - dangerZone2)
-                    pushStrength = min(pushStrength, 1.0)
-                    
-                    dist_unit = unit(dist) * pushStrength
-                    change -= dist_unit
-        
-        if ssq(change) > 1:
-            return unit(change)
-        return change
 
 
 

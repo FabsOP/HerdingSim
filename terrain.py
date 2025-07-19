@@ -259,7 +259,7 @@ class Terrain:
         for i in range(levels):
             lower = thresholds[i]
             upper = thresholds[i+1]
-            mask = (gray_data >= lower) & (gray_data < upper)
+            mask = (gray_data >= lower) & (gray_data <= upper)
             t = i / max(levels-1, 1)
             #fill_color = self.interpolate_color(bg_rgb, shade_rgb, t * 0.7)  # 0.7 to avoid going full black
             fill_color = self.interpolate_color(bg_rgb, shade_rgb, t)
@@ -381,6 +381,42 @@ class Terrain:
         # Color the region with the specified terrain type
         self.color_region(mask, terrain_type=target_terrain_type)
         print(f"Filled contour at ({x}, {y}) with terrain type '{target_terrain_type}'")
+        
+        
+    def getState(self):
+        """
+        Returns the current state of the terrain as a dictionary.
+        
+        :return: Dictionary containing heightmap, gradient field, contour image, and terrain type.
+        """
+        return {
+            "heightmap": self.heightmap.copy(),
+            "gradientField": self.gradientField.copy(),
+            "contourImg": self.contourImg.copy(),
+            "terrainType": self.terrainType,
+            "typegrid": self.typegrid.copy()
+        }
+    
+    def loadState(self, state):
+        """
+        Loads the terrain state from a dictionary.
+        
+        :param state: Dictionary containing heightmap, gradient field, contour image, and terrain type.
+        """
+        self.heightmap = state["heightmap"]
+        self.gradientField = state["gradientField"]
+        self.contourImg = state["contourImg"]
+        self.terrainType = state["terrainType"]
+        self.typegrid = state["typegrid"]
+        
+        # Recompute contour mask
+        unique_colors = np.unique(np.array(self.contourImg))
+        self.contourMask = np.zeros(self.heightmap.shape, dtype=np.int32)
+        for idx, color in enumerate(unique_colors):
+            mask = np.all(np.array(self.contourImg) == color, axis=-1)
+            self.contourMask[mask] = idx
+        
+        print("Terrain state loaded successfully.")
         
             
         
