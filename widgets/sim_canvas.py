@@ -9,7 +9,7 @@ import boid
 import time
 
 from vector import vectorAngle
-
+from types import SimpleNamespace
 import random
 
 paintWindowWidth = 0
@@ -122,6 +122,7 @@ class SimCanvas(tk.Canvas):
         self.pastBorder = None
         self.pastOverlay = None
         
+        
         ### EVENT BINDINGS
         self.bind("<Button-1>", self.handleClick)
         
@@ -185,7 +186,17 @@ class SimCanvas(tk.Canvas):
             for state in boid_states:
                 boid_obj = self._getOrCreateBoid(species, state=state)
                 self.spawned_boids[species].append(boid_obj)
+                
+    def restoreTerrain(self, typegrid):
+        if not np.array_equal(self.terrain.typegrid, typegrid):
+            self.terrain.overwriteTypegrid(typegrid)
+            self.setBgImage(self.terrain.contourImg)
 
+        
+
+        
+            
+            
     #update canvas
     def update(self, fps, ti):
         # media state
@@ -268,6 +279,7 @@ class SimCanvas(tk.Canvas):
             
             # Make sure the overlay is visible by raising it
             self.tag_raise("past_indicator")
+        
             
         
         
@@ -283,19 +295,24 @@ class SimCanvas(tk.Canvas):
             obstacles = frame["obstacles"]
             waypoints = frame["waypoints"]
             
+            terrainGrid = frame["terrain"]
+            
             # Use object pooling instead of creating new boids
             self._restoreBoids(boids)
+            
+            self.restoreTerrain(terrainGrid)
             
             self.obstacles = obstacles
             
             self.waypoints = waypoints
             
+            
             return
         
         
-        # print(f"Saving frame {self.framePointer}")
+        print(f"Saving frame {self.framePointer}")
         
-        frame = {"boids": None, "obstacles": None, "waypoints": None}
+        frame = {"boids": None, "obstacles": None, "waypoints": None, "terrain": None}
         
         #save boids
         frame["boids"] = {species: [animal.getState() for animal in animals] for species, animals in self.spawned_boids.items()}
@@ -305,6 +322,9 @@ class SimCanvas(tk.Canvas):
         
         # save waypoints
         frame["waypoints"] = self.waypoints.copy()
+        
+        # save terrain
+        frame["terrain"] = self.terrain.typegrid.copy()
         
         #append frame
         self.frames.append(frame)
@@ -338,12 +358,15 @@ class SimCanvas(tk.Canvas):
 
         frame = self.frames[self.framePointer]
         boids = frame["boids"]
+        terrainEdit = frame["terrain"]
         obstacles = frame.get("obstacles", [])
         waypoints = frame.get("waypoints", [])
         
         self.waypoints = waypoints.copy()
         self.obstacles = obstacles.copy()
         self._restoreBoids(boids)
+        self.restoreTerrain(terrainEdit)
+        self.setBgImage(self.terrain.contourImg)
 
     
         if self.framePointer == 0:
@@ -475,13 +498,9 @@ class SimCanvas(tk.Canvas):
                 #paint contour
                 if paintWindowWidth == 0:
                     self.color_contour(e, terrain)
-                    # save terrain state
-                    self.terrainHistory[self.framePointer] = copy.deepcopy(self.terrain)
                 else:
                     #loop through all pixels in the paint window circle
                     self.fill_paint_window(e, terrain)
-                    # save terrain state
-                    self.terrainHistory[self.framePointer] = copy.deepcopy(self.terrain)
         
         
                     
@@ -503,8 +522,6 @@ class SimCanvas(tk.Canvas):
             if self.isPainting:
                 self.fill_paint_window(e, self.controller.get_selected_terrain())
                 self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#FF0000", width=5 )
-                # save terrain state
-                self.terrainHistory[self.framePointer] = copy.deepcopy(self.terrain)
             else:
                 if paintWindowWidth == 0:
                     self.delete("paint_bucket")

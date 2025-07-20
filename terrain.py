@@ -382,7 +382,73 @@ class Terrain:
         self.color_region(mask, terrain_type=target_terrain_type)
         print(f"Filled contour at ({x}, {y}) with terrain type '{target_terrain_type}'")
         
-        
+    def overwriteTypegrid(self, typegrid, mask=None):
+        """
+        Optimized version that replaces the current typegrid with the new one and updates 
+        only changed pixels on the contour image.
+
+        :param typegrid: A 2D numpy array (H x W) of terrain type strings.
+        :param mask: Optional boolean mask to limit which pixels to overwrite (same shape as typegrid).
+        """
+        assert typegrid.shape == self.typegrid.shape, "New typegrid must match existing shape."
+
+        # Convert current contour image to numpy array for manipulation
+        contourImage = np.array(self.contourImg)
+
+        if mask is not None:
+            assert mask.shape == self.typegrid.shape, "Mask shape must match terrain shape."
+
+            # Vectorized approach for masked updates
+            mask_coords = np.where(mask)
+            
+            # Update typegrid at masked locations
+            self.typegrid[mask_coords] = typegrid[mask_coords]
+            
+            # Group coordinates by terrain type for efficient batch updates
+            coords_by_type = {}
+            for i, (y, x) in enumerate(zip(mask_coords[0], mask_coords[1])):
+                terrain_type = typegrid[y, x]
+                if terrain_type not in coords_by_type:
+                    coords_by_type[terrain_type] = []
+                coords_by_type[terrain_type].append((y, x))
+            
+            # Batch update contour image by terrain type
+            for terrain_type, coords_list in coords_by_type.items():
+                if coords_list:
+                    source_img = np.array(self.contourImgs[terrain_type])
+                    ys, xs = zip(*coords_list)
+                    contourImage[ys, xs] = source_img[ys, xs]
+        else:
+            # Find what actually changed to minimize updates
+            changed_mask = (self.typegrid != typegrid)
+            
+            if not np.any(changed_mask):
+                # Nothing changed, skip expensive operations
+                return
+            
+            # Update only changed pixels in typegrid
+            self.typegrid[:, :] = typegrid
+            
+            # Group changed pixels by their new terrain type
+            changed_coords = np.where(changed_mask)
+            coords_by_type = {}
+            
+            for y, x in zip(changed_coords[0], changed_coords[1]):
+                terrain_type = typegrid[y, x]
+                if terrain_type not in coords_by_type:
+                    coords_by_type[terrain_type] = ([], [])
+                coords_by_type[terrain_type][0].append(y)
+                coords_by_type[terrain_type][1].append(x)
+            
+            # Batch update contour image for changed pixels only
+            for terrain_type, (ys, xs) in coords_by_type.items():
+                if ys:  # If there are coordinates to update
+                    source_img = np.array(self.contourImgs[terrain_type])
+                    contourImage[ys, xs] = source_img[ys, xs]
+
+        # Update the contour image
+        self.contourImg = Image.fromarray(contourImage)
+    
     def getState(self):
         """
         Returns the current state of the terrain as a dictionary.
