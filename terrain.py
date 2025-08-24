@@ -33,6 +33,24 @@ color_map = {
     },
 }
 
+type2Idx = {
+    "Grass": 0,
+    "Sand": 1,
+    "Ice": 2,
+    "Water": 3,
+    "Rock": 4,
+    "Snow": 5
+}
+
+idx2Type = {
+    0 : "Grass",
+    1 : "Sand",
+    2 : "Ice",
+    3 : "Water",
+    4 : "Rock",
+    5 : "Snow"
+}
+
 class Terrain:
     def __init__(self, w, h, invert=True):
         """
@@ -57,18 +75,27 @@ class Terrain:
         self.contourMask = None  # identify contours by unique colors
         self.terrainType = "Grass"  # Default terrain type
         
-        self.typegrid = np.zeros(self.heightmap.shape, dtype=object)  # 2D array to store terrain types
+        self.typegrid = np.zeros(self.heightmap.shape, dtype=np.uint8)  # 2D array to store terrain types as indices
         
-        self.contourImgs = {
-            "Grass": None,
-            "Sand": None,
-            "Ice": None,
-            "Shallows": None
-        }
+        self.contourImgs_stack = None
+        
+        self.contourImgs ={}
         
         self.heightmapImg = None
         
         self.contour_levels = 15  
+        
+    def _build_terrain_stack(self):
+        """Build and cache the stacked terrain images array for fast indexing."""
+        self.contourImgs_stack = np.stack([
+            np.array(self.contourImgs["Grass"]),    # index 0
+            np.array(self.contourImgs["Sand"]),     # index 1  
+            np.array(self.contourImgs["Ice"]),      # index 2
+            np.array(self.contourImgs["Water"]),    # index 3
+            np.array(self.contourImgs["Rock"]),     # index 4
+            np.array(self.contourImgs["Snow"])      # index 5
+        ])
+        print("Successfully built terrainStack")
         
     def load(self, greyscaleImagePath=None, terrainType="Grass", levels=15):
         """
@@ -105,8 +132,10 @@ class Terrain:
             mask = np.all(np.array(self.contourImg) == color, axis=-1)
             self.contourMask[mask] = idx
         
-        # update the typegrid with the terrain type
-        self.typegrid.fill(terrainType)
+        # update the typegrid with the terrain type index
+        self.typegrid.fill(type2Idx[terrainType])
+        
+        self._build_terrain_stack()
         
         print(f"Terrain loaded with heightmap shape: {self.heightmap.shape}")
         print(f"Terrain loaded with gradient field shape: {self.gradientField.shape}")
@@ -286,14 +315,14 @@ class Terrain:
         :return: Terrain type as a string.
         """
         assert 0 <= x < self.width and 0 <= y < self.height, "Coordinates out of bounds."
-        return self.typegrid[int(y), int(x)]
+        return idx2Type[self.typegrid[int(y), int(x)]]
 
-    def color_region(self, mask, terrain_type="desert"):
+    def color_region(self, mask, terrain_type="Sand"):
         """
         Colors a region of the heightmap based on a mask.
         
         :param mask: 2D numpy array of boolean values indicating the region to color.
-        :param terrain_type: Type of terrain to color (e.g., "desert", "ice", "shallows").
+        :param terrain_type: Type of terrain to color (e.g., "Sand", "Ice", "Water").
         """
         assert mask.shape == self.heightmap.shape, "Mask shape must match heightmap shape."
         
@@ -310,9 +339,26 @@ class Terrain:
         # Update the contour image with the new colored region
         self.contourImg = Image.fromarray(contourImage)
         
-        #update the typegrid with the terrain type
-        self.typegrid[mask_indices] = terrain_type
+        #update the typegrid with the terrain type index
+        self.typegrid[mask_indices] = type2Idx[terrain_type]
     
+    def overwriteRegion(self, mask, typegrid):
+        """
+        Ultra-fast overwriteRegion using pre-cached terrain stack.
+        """    
+        
+        # Convert current contour image to numpy array for manipulation
+        contourImage = np.array(self.contourImg)
+        
+        # Get mask coordinates
+        mask_y, mask_x = np.where(mask)
+    
+        contourImage[mask_y, mask_x] = self.contourImgs_stack[typegrid[mask_y, mask_x], mask_y, mask_x]
+        
+        # Update the contour image and typegrid
+        self.contourImg = Image.fromarray(contourImage)
+        self.typegrid[mask] = typegrid[mask]
+        
     def compute_gradient(self, x, y):
         h, w = self.heightmap.shape
         
@@ -325,8 +371,8 @@ class Terrain:
         # Central difference approximation
         dh_dx = (self.heightmap[y, x_right] - self.heightmap[y, x_left]) / (x_right - x_left)
         dh_dy = (self.heightmap[y_top, x] - self.heightmap[y_bottom, x]) / (y_top - y_bottom)
-        
         return np.array([dh_dx, dh_dy])
+            
 
     def generateGradientField(self):
         """
@@ -349,7 +395,7 @@ class Terrain:
         
         :param x: X coordinate to start filling.
         :param y: Y coordinate to start filling.
-        :param terrain_type: Type of terrain to fill (e.g., "desert", "ice", "shallows").
+        :param target_terrain_type: Type of terrain to fill (e.g., "Sand", "Ice", "Water").
         """
         assert 0 <= x < self.width and 0 <= y < self.height, "Coordinates out of bounds."
         
@@ -382,12 +428,44 @@ class Terrain:
         self.color_region(mask, terrain_type=target_terrain_type)
         print(f"Filled contour at ({x}, {y}) with terrain type '{target_terrain_type}'")
         
+    def getContourImage(self, terrain_type="Grass"):
+        """
+        Returns the contour image for the specified terrain type.
+        
+        :param terrain_type: Type of terrain (e.g., "Grass", "Sand", "Ice", "Water").
+        :return: PIL Image of the contour map.
+        """
+        assert terrain_type in self.contourImgs, f"Contour image for terrain type '{terrain_type}' not found."
+        return self.contourImgs[terrain_type]
+    
+    def invertHeightmap(self):
+        """
+        Inverts the heightmap and updates the contour image accordingly.
+        """
+        self.heightmap = 255 - self.heightmap
+        self.gradientField = self.generateGradientField()
+        
+        # Regenerate contour images for each terrain type
+        for terrain, colors in color_map.items():
+            bg_color = colors["bg_color"]
+            shade_color = colors["shade_color"]
+            contour_img = self.generate_contour_map(bg_color, levels=self.contour_levels, shade_color=shade_color, terrain_type=terrain)
+            self.contourImgs[terrain] = contour_img
+        
+        # Update the current contour image based on the current terrain type
+        self.contourImg = self.contourImgs[self.terrainType]
+        
+        # Rebuild the terrain stack since contour images have changed
+        self._build_terrain_stack()
+        
+        print("Heightmap inverted and contour images updated.")
+        
     def overwriteTypegrid(self, typegrid, mask=None):
         """
         Optimized version that replaces the current typegrid with the new one and updates 
         only changed pixels on the contour image.
 
-        :param typegrid: A 2D numpy array (H x W) of terrain type strings.
+        :param typegrid: A 2D numpy array (H x W) of terrain type indices (uint8).
         :param mask: Optional boolean mask to limit which pixels to overwrite (same shape as typegrid).
         """
         assert typegrid.shape == self.typegrid.shape, "New typegrid must match existing shape."
@@ -404,20 +482,21 @@ class Terrain:
             # Update typegrid at masked locations
             self.typegrid[mask_coords] = typegrid[mask_coords]
             
-            # Group coordinates by terrain type for efficient batch updates
-            coords_by_type = {}
-            for i, (y, x) in enumerate(zip(mask_coords[0], mask_coords[1])):
-                terrain_type = typegrid[y, x]
-                if terrain_type not in coords_by_type:
-                    coords_by_type[terrain_type] = []
-                coords_by_type[terrain_type].append((y, x))
+            # Get unique terrain types in the masked region and process each type
+            unique_types = np.unique(typegrid[mask_coords])
             
-            # Batch update contour image by terrain type
-            for terrain_type, coords_list in coords_by_type.items():
-                if coords_list:
+            for terrain_type_idx in unique_types:
+                terrain_type = idx2Type[terrain_type_idx]
+                # Find all coordinates for this terrain type within the masked region
+                type_mask = typegrid[mask_coords] == terrain_type_idx
+                if np.any(type_mask):
+                    # Get coordinates for this specific terrain type
+                    type_coords_y = mask_coords[0][type_mask]
+                    type_coords_x = mask_coords[1][type_mask]
+                    
+                    # Batch update contour image for this terrain type
                     source_img = np.array(self.contourImgs[terrain_type])
-                    ys, xs = zip(*coords_list)
-                    contourImage[ys, xs] = source_img[ys, xs]
+                    contourImage[type_coords_y, type_coords_x] = source_img[type_coords_y, type_coords_x]
         else:
             # Find what actually changed to minimize updates
             changed_mask = (self.typegrid != typegrid)
@@ -429,61 +508,44 @@ class Terrain:
             # Update only changed pixels in typegrid
             self.typegrid[:, :] = typegrid
             
-            # Group changed pixels by their new terrain type
+            # Get unique terrain types that have changed
             changed_coords = np.where(changed_mask)
-            coords_by_type = {}
+            unique_types = np.unique(typegrid[changed_coords])
             
-            for y, x in zip(changed_coords[0], changed_coords[1]):
-                terrain_type = typegrid[y, x]
-                if terrain_type not in coords_by_type:
-                    coords_by_type[terrain_type] = ([], [])
-                coords_by_type[terrain_type][0].append(y)
-                coords_by_type[terrain_type][1].append(x)
-            
-            # Batch update contour image for changed pixels only
-            for terrain_type, (ys, xs) in coords_by_type.items():
-                if ys:  # If there are coordinates to update
+            for terrain_type_idx in unique_types:
+                terrain_type = idx2Type[terrain_type_idx]
+                # Find all changed coordinates for this terrain type
+                type_mask = (changed_mask) & (typegrid == terrain_type_idx)
+                type_coords = np.where(type_mask)
+                
+                if len(type_coords[0]) > 0:
+                    # Batch update contour image for this terrain type
                     source_img = np.array(self.contourImgs[terrain_type])
-                    contourImage[ys, xs] = source_img[ys, xs]
+                    contourImage[type_coords] = source_img[type_coords]
 
         # Update the contour image
         self.contourImg = Image.fromarray(contourImage)
     
+    def fillAll(self, terrain_type="Sand"):
+        """
+        Fills the entire terrain with the specified terrain type.
+        
+        :param terrain_type: Type of terrain to fill (e.g., "Sand", "Ice", "Water").
+        """
+        assert terrain_type in color_map, f"Unknown terrain type: {terrain_type}"
+        
+        # Create a mask that covers the entire heightmap
+        mask = np.ones(self.heightmap.shape, dtype=bool)
+        
+        # Color the entire region with the specified terrain type
+        self.color_region(mask, terrain_type=terrain_type)
+        
+    
     def getState(self):
         """
-        Returns the current state of the terrain as a dictionary.
-        
-        :return: Dictionary containing heightmap, gradient field, contour image, and terrain type.
+        Returns only the typegrid — minimal and sufficient to restore terrain visuals.
         """
-        return {
-            "heightmap": self.heightmap.copy(),
-            "gradientField": self.gradientField.copy(),
-            "contourImg": self.contourImg.copy(),
-            "terrainType": self.terrainType,
-            "typegrid": self.typegrid.copy()
-        }
+        return self.typegrid.copy()
     
     def loadState(self, state):
-        """
-        Loads the terrain state from a dictionary.
-        
-        :param state: Dictionary containing heightmap, gradient field, contour image, and terrain type.
-        """
-        self.heightmap = state["heightmap"]
-        self.gradientField = state["gradientField"]
-        self.contourImg = state["contourImg"]
-        self.terrainType = state["terrainType"]
-        self.typegrid = state["typegrid"]
-        
-        # Recompute contour mask
-        unique_colors = np.unique(np.array(self.contourImg))
-        self.contourMask = np.zeros(self.heightmap.shape, dtype=np.int32)
-        for idx, color in enumerate(unique_colors):
-            mask = np.all(np.array(self.contourImg) == color, axis=-1)
-            self.contourMask[mask] = idx
-        
-        print("Terrain state loaded successfully.")
-        
-            
-        
-        
+        pass

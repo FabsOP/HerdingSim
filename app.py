@@ -1,6 +1,7 @@
 #### IMPORTS ###############################
 from widgets.simulation import Simulation
 from widgets.main_menu import MainMenu
+from widgets.terrainLoader import TerrainLoader
 
 #music and sounds
 import pygame
@@ -56,13 +57,14 @@ pygame.mixer.init()
 ### MAIN CODE ######################################################
 if __name__ == "__main__":
     m = MainMenu()
+    t = TerrainLoader()
     
-    terrainSize = "large"  # Options: "small", "large"
-    terrainType = "Sand"  # Options: "Grass", "Sand", "Ice", "Shallows"
-    invert = False  # Invert the greyscale for better visualization
-    nContours = 15
-    heightMapPath = r"terrain\china.png"
-    terrain = generateTerrain(terrainSize, terrainType, heightMapPath, nContours, invert=invert)
+    terrainSize = "large"  
+    # terrainType = "Sand"  # Options: "Grass", "Sand", "Ice", "Rock", "Water", "Snow"
+    # invert = False  
+    # nContours = 15
+    # heightMapPath = r"heightmaps\china.png"
+    terrain = t.getSelectedTerrain()
     
     # Create the simulation with the generated terrain
     s = Simulation(terrainSize, terrain)

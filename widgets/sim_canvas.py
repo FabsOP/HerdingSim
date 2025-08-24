@@ -11,6 +11,7 @@ import time
 from vector import vectorAngle
 from types import SimpleNamespace
 import random
+import functools
 
 paintWindowWidth = 0
 paintWindowStep = 10
@@ -119,6 +120,10 @@ class SimCanvas(tk.Canvas):
         self.framePointer = -1
         self.numFrames = 0
         
+        ### OPERATION HISTORY - Changed to accumulate operations per frame
+        self.terrainHistory = []
+        self.currentFrameTerrainOps = []  # Accumulate operations for current frame
+        
         self.pastBorder = None
         self.pastOverlay = None
         
@@ -187,16 +192,7 @@ class SimCanvas(tk.Canvas):
                 boid_obj = self._getOrCreateBoid(species, state=state)
                 self.spawned_boids[species].append(boid_obj)
                 
-    def restoreTerrain(self, typegrid):
-        if not np.array_equal(self.terrain.typegrid, typegrid):
-            self.terrain.overwriteTypegrid(typegrid)
-            self.setBgImage(self.terrain.contourImg)
-
-        
-
-        
-            
-            
+               
     #update canvas
     def update(self, fps, ti):
         # media state
@@ -216,6 +212,8 @@ class SimCanvas(tk.Canvas):
         
         if mediaState in ["rewind", "fast-rewind"] and not isPaused:
             self.rewind(mediaState)
+        
+        
         
         # Draw animals
         for species in self.spawned_boids.keys():
@@ -250,7 +248,7 @@ class SimCanvas(tk.Canvas):
             
         # Update frames
         if not isPaused and mediaState not in ["rewind", "fast-rewind"]:
-            self.nextFrame()
+            self.nextFrame(mediaState)
             
         
             
@@ -284,8 +282,10 @@ class SimCanvas(tk.Canvas):
         
         
 
-    def nextFrame(self):
-        """Optimized nextFrame with object pooling"""
+    def nextFrame(self, mediaState):
+        """Optimized nextFrame with accumulated terrain operations"""
+        
+        #### If we're still in the past, restore past frames
         if self.framePointer != self.numFrames - 1:
             self.framePointer = min(self.numFrames - 1, self.framePointer + self.mediaController.dtMultiplier)
             # print(f"Restoring... (Frame {self.framePointer +1}/{self.numFrames})")
@@ -295,38 +295,67 @@ class SimCanvas(tk.Canvas):
             obstacles = frame["obstacles"]
             waypoints = frame["waypoints"]
             
-            terrainGrid = frame["terrain"]
+            # load terrain history: apply operations based on media state
+            ops_to_apply = []
+            if mediaState == "running":
+                if self.framePointer < len(self.terrainHistory):
+                    ops_to_apply = self.terrainHistory[self.framePointer]
+                
+            elif mediaState == "forward":
+                # Apply operations from previous frame and current frame
+                if self.framePointer - 1 >= 0 and self.framePointer - 1 < len(self.terrainHistory):
+                    ops_to_apply.extend(self.terrainHistory[self.framePointer - 1])
+                if self.framePointer < len(self.terrainHistory):
+                    ops_to_apply.extend(self.terrainHistory[self.framePointer])
+                
+            elif mediaState == "fast-forward":
+                # Apply operations from last 4 frames
+                for i in range(max(0, self.framePointer - 3), self.framePointer + 1):
+                    if i < len(self.terrainHistory):
+                        ops_to_apply.extend(self.terrainHistory[i])
+            
+            # Apply all terrain operations (forward operations)
+            for op_pair in ops_to_apply:
+                if op_pair and len(op_pair) >= 2 and op_pair[1] is not None:
+                    op_pair[1]()  # Apply forward operation
+                    
+            self.setBgImage(self.terrain.contourImg)
             
             # Use object pooling instead of creating new boids
             self._restoreBoids(boids)
-            
-            self.restoreTerrain(terrainGrid)
             
             self.obstacles = obstacles
             
             self.waypoints = waypoints
             
+            # Stop fast forwarding if we reach present
+            if self.framePointer == self.numFrames - 1:
+                if mediaState == "forward":
+                    self.mediaController.fastForward2x()  
+                elif mediaState == "fast-forward":
+                    self.mediaController.fastForward4x()
             
             return
         
-        
+        ### Otherwise, we're in the present so save current state of simulation
         print(f"Saving frame {self.framePointer}")
         
-        frame = {"boids": None, "obstacles": None, "waypoints": None, "terrain": None}
+        frame = {"boids": None, "obstacles": None, "waypoints": None}
         
-        #save boids
+        # Save boids
         frame["boids"] = {species: [animal.getState() for animal in animals] for species, animals in self.spawned_boids.items()}
         
-        #save obstacles
+        # Save obstacles
         frame["obstacles"] = self.obstacles.copy()
         
-        # save waypoints
+        # Save waypoints
         frame["waypoints"] = self.waypoints.copy()
         
-        # save terrain
-        frame["terrain"] = self.terrain.typegrid.copy()
+        # Save accumulated terrain operations for this frame
+        self.terrainHistory.append(self.currentFrameTerrainOps.copy())
+        self.currentFrameTerrainOps.clear()  # Clear for next frame
         
-        #append frame
+        # Append frame
         self.frames.append(frame)
         
         self.numFrames = len(self.frames)
@@ -345,30 +374,46 @@ class SimCanvas(tk.Canvas):
         self.frames = self.frames[:self.framePointer+1]
         self.numFrames = len(self.frames)
         
+        self.terrainHistory = self.terrainHistory[:self.framePointer+1]
+        
         print("Total frames:", self.numFrames)
         print("Frame pointer:", self.framePointer)
         
     def rewind(self, rewindType):
-        """Optimized rewind with object pooling"""
+        """Optimized rewind with accumulated terrain operations"""
         
         if rewindType == "rewind":
             self.framePointer = max(0, self.framePointer-1)
+            # Apply backward operations from the frame we're leaving
+            if self.framePointer + 1 < len(self.terrainHistory):
+                ops_to_apply = self.terrainHistory[self.framePointer + 1]
+                for op_pair in reversed(ops_to_apply):  # Apply in reverse order
+                    if op_pair and len(op_pair) >= 1 and op_pair[0] is not None:
+                        op_pair[0]()  # Apply backward operation
         else:
+            # Fast rewind: go back 4 frames
+            old_frame_pointer = self.framePointer
             self.framePointer = max(0, self.framePointer-4)
+            
+            # Apply backward operations from all frames we're leaving
+            for frame_idx in range(old_frame_pointer, self.framePointer, -1):
+                if frame_idx < len(self.terrainHistory):
+                    ops_to_apply = self.terrainHistory[frame_idx]
+                    for op_pair in reversed(ops_to_apply):  # Apply in reverse order
+                        if op_pair and len(op_pair) >= 1 and op_pair[0] is not None:
+                            op_pair[0]()  # Apply backward operation
 
         frame = self.frames[self.framePointer]
         boids = frame["boids"]
-        terrainEdit = frame["terrain"]
         obstacles = frame.get("obstacles", [])
         waypoints = frame.get("waypoints", [])
         
         self.waypoints = waypoints.copy()
         self.obstacles = obstacles.copy()
         self._restoreBoids(boids)
-        self.restoreTerrain(terrainEdit)
+                    
         self.setBgImage(self.terrain.contourImg)
-
-    
+        
         if self.framePointer == 0:
             mediaState = self.mediaController.state
             isPaused = self.mediaController.isPaused
@@ -442,12 +487,29 @@ class SimCanvas(tk.Canvas):
                     mask[y, x] = True
         # Convert mask to a list of coordinates
         
-        self.terrain.color_region(mask, terrain_type)
-        self.setBgImage(self.terrain.contourImg)  # Update the background image to reflect the changes
+        mask_copy = mask
+        # Reverse operation
+        typegrid = np.array(self.terrain.typegrid)
+        backward = functools.partial(self.terrain.overwriteRegion, mask_copy, typegrid)
+        
+        forward = functools.partial(self.terrain.color_region, mask, terrain_type)
+        forward()
+        self.setBgImage(self.terrain.contourImg)
+                            
+        # Add operations to current frame accumulator instead of overwriting
+        self.currentFrameTerrainOps.append((backward, forward))
         
     def color_contour(self, e, terrain_type):
-        self.terrain.contourFill(e.x,e.y, terrain_type)
+        # Reverse operation
+        typeBefore = self.terrain.typeAt(e.x, e.y)
+        backward = functools.partial(self.terrain.contourFill, e.x, e.y, typeBefore)
+        
+        forward = functools.partial(self.terrain.contourFill, e.x, e.y, terrain_type)
+        forward()
         self.setBgImage(self.terrain.contourImg) # Update the background image to reflect the changes
+        
+        # Add operations to current frame accumulator instead of overwriting
+        self.currentFrameTerrainOps.append((backward, forward))
         
                     
     # event handlers
@@ -539,7 +601,7 @@ class SimCanvas(tk.Canvas):
     def handleScrollWheel(self, e):
         global paintWindowWidth
         
-        if self.controller.get_selected_terrain() != None:
+        if self.controller.get_selected_terrain() in ["Rock", "Sand", "Water", "Ice", "Snow", "Grass"]:
             if e.num == 4 or e.delta > 0:
                 self.delete("paint_bucket")
                 print(f"Increasing brush size: {paintWindowWidth}")
@@ -578,17 +640,14 @@ class SimCanvas(tk.Canvas):
             pos = (e.x,e.y)
             print(f"Placing waypoint for {selectedSpecies} at: ({pos[0]}, {pos[1]})")
             self.waypoints[selectedSpecies] = np.array(pos, dtype=float)
-            # save waypoint state
-            self.waypointHistory[self.framePointer] = copy.deepcopy(self.waypoints)
+
+            
             
         if not selectedSpecies and not selectedTerrain: #if no animal or terrain is selected
             #remove all waypoints
             for species in self.waypoints.keys():
                 self.waypoints[species] = None
             
-            # save waypoint state
-            self.waypointHistory[self.framePointer] = copy.deepcopy(self.waypoints)
-            print("Removed all waypoints")
         
             
     def handleReleaseClick(self, e):
