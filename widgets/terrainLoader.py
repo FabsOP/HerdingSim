@@ -326,8 +326,10 @@ class TerrainLoader(tk.Tk):
             
             # Add to terrain list
             
-            if len(save_name) > 12:
-                display_name = save_name[:12] + "..."
+            if len(save_name) > 18:
+                display_name = save_name[:18] + "..."
+            else:
+                display_name = save_name
             
             self.savedTerrains.append({
                 "name": display_name,

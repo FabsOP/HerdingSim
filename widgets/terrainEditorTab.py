@@ -18,6 +18,8 @@ class TerrainTab(tk.Frame):
         terrain_btn_frame = tk.Frame(parent, bg="#F5FBEF")
         terrain_btn_frame.pack()
         
+        tk.Label(parent, text="Brush Settings", bg="#F5FBEF", font=("Comic Sans MS", 9, "bold"), fg="#4C6B32").pack(pady=10)
+        
         ## generate btn grid of icons
         btnIcons = [
                     ("icons/grass.png", "Grass", "A lush green terrain, perfect for grazing animals."),

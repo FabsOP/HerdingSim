@@ -60,10 +60,6 @@ if __name__ == "__main__":
     t = TerrainLoader()
     
     terrainSize = "large"  
-    # terrainType = "Sand"  # Options: "Grass", "Sand", "Ice", "Rock", "Water", "Snow"
-    # invert = False  
-    # nContours = 15
-    # heightMapPath = r"heightmaps\china.png"
     terrain = t.getSelectedTerrain()
     
     # Create the simulation with the generated terrain

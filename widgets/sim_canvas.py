@@ -16,7 +16,7 @@ import functools
 paintWindowWidth = 0
 paintWindowStep = 10
 
-borderMode = "Wrap"
+borderMode = "Void"  # Options: "Die", "Wrap", "Bounce"
 
 testMode = True
 
@@ -97,18 +97,22 @@ class SimCanvas(tk.Canvas):
         
         self.terrain = terrain
         self.isPainting = False
+        self.mouseOnCanvas = False
         
         self.waypoints = {species: None for species in behaviours.keys()}
         self.waypointImages = {"Sheep": ImageTk.PhotoImage(Image.open(f"icons/sheep_waypoint.png").resize((30, 30))),
                                "Penguin": ImageTk.PhotoImage(Image.open(f"icons/penguin_waypoint.png").resize((30, 30))),
-                               "Fox": ImageTk.PhotoImage(Image.open(f"icons/fox_waypoint.png").resize((30, 30)))}
+                               "Fox": ImageTk.PhotoImage(Image.open(f"icons/fox_waypoint.png").resize((30, 30))),
+                               "Swallow": ImageTk.PhotoImage(Image.open(f"icons/swallow_waypoint.png").resize((30,30))),
+                               "Elephant": ImageTk.PhotoImage(Image.open(f"icons/elephant_waypoint.png").resize((30, 30))),
+                               "Flamingo": ImageTk.PhotoImage(Image.open(f"icons/flamingo_waypoint.png").resize((30, 30)))}
         
         self.boidImages = {"Sheep": ImageTk.PhotoImage(Image.open("icons/sheep_land.png").resize((behaviours["Sheep"]["size"], behaviours["Sheep"]["size"]))),
                            "Penguin": ImageTk.PhotoImage(Image.open("icons/penguin_land.png").resize((behaviours["Penguin"]["size"], behaviours["Penguin"]["size"]))),
                            "Elephant": ImageTk.PhotoImage(Image.open("icons/elephant_land.png").resize((behaviours["Elephant"]["size"], behaviours["Elephant"]["size"]))),
                            "Fox": ImageTk.PhotoImage(Image.open("icons/fox_land.png").resize((behaviours["Fox"]["size"], behaviours["Fox"]["size"]))),
-                           "Fish": ImageTk.PhotoImage(Image.open("icons/fish_land.png").resize((behaviours["Fish"]["size"], behaviours["Fish"]["size"]))),
-                           "Bunny": ImageTk.PhotoImage(Image.open("icons/bunny_land.png").resize((behaviours["Bunny"]["size"], behaviours["Bunny"]["size"])))}
+                           "Swallow": ImageTk.PhotoImage(Image.open("icons/swallow_land.png").resize((behaviours["Swallow"]["size"], behaviours["Swallow"]["size"]))),
+                           "Flamingo": ImageTk.PhotoImage(Image.open("icons/flamingo_land.png").resize((behaviours["Flamingo"]["size"], behaviours["Flamingo"]["size"])))}
         
         
         self.setBgImage(terrain.contourImg)
@@ -223,13 +227,13 @@ class SimCanvas(tk.Canvas):
                 if not isPaused and mediaState not in ["rewind", "fast-rewind"] and self.framePointer == self.numFrames - 1: # Update animal state only if not paused and media is running and we've restored all frames
                     animal.update(allBoids, self.terrain, self.obstacles, dt)
                     animal.setGoal(self.waypoints[species])
-                    animal.handleBorder(borderMode, w=self.width, h=self.height)
-                # if animal.isDead:
-                #     self.delete(animal.canvasId)
-                #     self.spawned_boids[species].remove(animal)
-                #     animal.kill()   #remove from flock  #do this in the actual boid class. Just a reminder
-                #     continue
-                self.create_image(animal.position[0], animal.position[1], image=self.boidImages[species], tags="animal")
+                    animal.handleBorder(self.controller.getBorderMode(), w=self.width, h=self.height)
+                if animal.isDead:
+                
+                    self.spawned_boids[species].remove(animal)
+                    animal.kill()   #remove from flock  #do this in the actual boid class. Just a reminder
+                    continue
+                self.create_image(animal.position[0], animal.position[1], image=self.boidImages[species], tags=("animal", species))
         
         # Draw waypoints
         for species, waypoint in self.waypoints.items():
@@ -255,10 +259,17 @@ class SimCanvas(tk.Canvas):
         
             
         # Visualize parameters
-        self.visualizeParams()
+        if boid.lastModified:
+            if tf - boid.lastModified["time"] < 10:
+                self.visualizeParams()
+            else:
+                boid.lastModified = None
+            
         
         # Raise obstacles to the top layer
         self.tag_raise("obstacle")
+        self.tag_raise("waypoint")
+        self.tag_raise("Bird")
         # self.tag_raise("obstacle_hitbox")
         self.after(int(1000 / fps), lambda: self.update(fps, tf))
         
@@ -434,6 +445,7 @@ class SimCanvas(tk.Canvas):
             # print(boid.lastModified)
             if not boid.lastModified: return
             
+            
             #radial vizualizations
             if boid.lastModified["parameter"] in ["comfort-zone", "danger-zone"]:
                 for animal in self.spawned_boids[boid.lastModified["species"]][:5]:
@@ -502,6 +514,10 @@ class SimCanvas(tk.Canvas):
     def color_contour(self, e, terrain_type):
         # Reverse operation
         typeBefore = self.terrain.typeAt(e.x, e.y)
+        
+        if typeBefore == terrain_type:
+            return  # No change needed
+        
         backward = functools.partial(self.terrain.contourFill, e.x, e.y, typeBefore)
         
         forward = functools.partial(self.terrain.contourFill, e.x, e.y, terrain_type)
@@ -570,6 +586,8 @@ class SimCanvas(tk.Canvas):
         # print(f"Type at ({e.x} {e.y}): {self.terrain.typeAt(e.x, e.y)}")
         # print(f"Height at ({e.x} {e.y}): {self.terrain.heightAt(e.x, e.y)}")
         
+        self.mouseOnCanvas = True
+        
         if self.controller.get_selected_animal() != None or self.controller.get_selected_terrain() in ["Tree", "Boulder", "Bush"]:
             self.config(cursor="hand2")
         
@@ -595,6 +613,7 @@ class SimCanvas(tk.Canvas):
             self.config(cursor="arrow")
      
     def handleLeave(self,_):
+        self.mouseOnCanvas = False
         self.delete(self.windowRec)
         self.delete("paint_bucket")
             
@@ -615,8 +634,12 @@ class SimCanvas(tk.Canvas):
             self.delete(self.windowRec)
             
             #draw new window
-            #self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
-            self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+            if self.mouseOnCanvas and paintWindowWidth > 0:
+                #self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
+                self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+            elif self.mouseOnCanvas and paintWindowWidth == 0:
+                self.delete("paint_bucket")
+                self.create_image(e.x, e.y, image=self.paintBucketIcon, tags="paint_bucket")
             
     def handleRightClick(self,e):
         # we can't interact with the canvas during rewinding

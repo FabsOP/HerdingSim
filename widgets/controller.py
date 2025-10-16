@@ -49,6 +49,9 @@ class Controller(tk.Frame):
     def get_selected_animal(self):
         return self.speciesTab.selected_animal
     
+    def getBorderMode(self):
+        return self.speciesTab.borderVar.get()
+    
     def get_selected_terrain(self):
         return self.terrainTab.selected_terrain
     

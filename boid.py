@@ -61,12 +61,12 @@ default_behaviours = {
         "view-angle": [1, 180,1,int,90],
         "drag-factor": [0, 55, 1, int, 10],
     },
-    "Bunny": {
+    "Flamingo": {
         "size": 12,
         "herd-size": [1,30, 1, int, 20],
         "max-acceleration": [1, 100, 1, int, 30],
         "max-velocity": [1, 100, 1, int, 15],
-        "cruising-speed": [1,10,1,int,0], #[0,max-velocity,_,_]
+        "cruising-speed": [1,10,1,int,1], #[0,max-velocity,_,_]
         "comfort-zone": [16, 100,1,int,14], #[size, inf,_,_]
         "danger-zone": [16,40,1,int,9], #[size, comfort,_,_]
         "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
@@ -74,18 +74,16 @@ default_behaviours = {
         "view-angle": [1, 180,1,int,90],
         "drag-factor": [0, 55, 1, int, 30],
     },
-    "Fish": {
+    "Swallow": {
         "size": 12,
-        "herd-size": [1,30, 1, int, 20],
-        "max-acceleration": [1, 100, 1, int, 30],
-        "max-velocity": [1, 100, 1, int, 15],
-        "cruising-speed": [1,10,1,int,0], #[0,max-velocity,_,_]
-        "comfort-zone": [16, 100,1,int,14], #[size, inf,_,_]
+        "herd-size": [1,30, 1, int, 15],
+        "max-acceleration": [1, 100, 1, int, 100],
+        "max-velocity": [1, 100, 1, int, 30],
+        "cruising-speed": [1,15,1,int,30], #[0,max-velocity,_,_]
+        "comfort-zone": [16, 100,1,int,25], #[size, inf,_,_]
         "danger-zone": [16,40,1,int,9], #[size, comfort,_,_]
-        "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
-        "flockmate-range": [40,200,1,int,40], #[comfort, inf]
-        "view-angle": [1, 180,1,int,90],
-        "drag-factor": [0, 55, 1, int, 30],
+        "flockmate-range": [40,200,1,int,80], #[comfort, inf]
+        "view-angle": [1, 180,1,int,120],
     }
 }
 behaviours = copy.deepcopy(default_behaviours)
@@ -138,24 +136,33 @@ def updateParamBoundaries(species):
         fox["danger-zone"][1] = fox["comfort-zone"][4] -1
         fox["flockmate-range"][0] = fox["comfort-zone"][4]
         fox["obstacle-range"][0] = fox["size"]
-    elif species == "Bunny":
-        bunny = behaviours["Bunny"]
-        bunny["max-velocity"][0] = bunny["cruising-speed"][4]
-        bunny["cruising-speed"][1] = bunny["max-velocity"][4]
-        bunny["comfort-zone"][0] = bunny["size"] + 1
-        bunny["danger-zone"][0] = bunny["size"]
-        bunny["danger-zone"][1] = bunny["comfort-zone"][4] -1
-        bunny["flockmate-range"][0] = bunny["comfort-zone"][4]
-        bunny["obstacle-range"][0] = bunny["size"]
-    elif species == "Fish":
-        fish = behaviours["Fish"]
-        fish["max-velocity"][0] = fish["cruising-speed"][4]
-        fish["cruising-speed"][1] = fish["max-velocity"][4]
-        fish["comfort-zone"][0] = fish["size"] + 1
-        fish["danger-zone"][0] = fish["size"]
-        fish["danger-zone"][1] = fish["comfort-zone"][4] -1
-        fish["flockmate-range"][0] = fish["comfort-zone"][4]
-        fish["obstacle-range"][0] = fish["size"]
+    elif species == "Flamingo":
+        flamingo = behaviours["Flamingo"]
+        flamingo["max-velocity"][0] = flamingo["cruising-speed"][4]
+        flamingo["cruising-speed"][1] = flamingo["max-velocity"][4]
+        flamingo["comfort-zone"][0] = flamingo["size"] + 1
+        flamingo["danger-zone"][0] = flamingo["size"]
+        flamingo["danger-zone"][1] = flamingo["comfort-zone"][4] -1
+        flamingo["flockmate-range"][0] = flamingo["comfort-zone"][4]
+        flamingo["obstacle-range"][0] = flamingo["size"]
+    # elif species == "Fish":
+    #     fish = behaviours["Fish"]
+    #     fish["max-velocity"][0] = fish["cruising-speed"][4]
+    #     fish["cruising-speed"][1] = fish["max-velocity"][4]
+    #     fish["comfort-zone"][0] = fish["size"] + 1
+    #     fish["danger-zone"][0] = fish["size"]
+    #     fish["danger-zone"][1] = fish["comfort-zone"][4] -1
+    #     fish["flockmate-range"][0] = fish["comfort-zone"][4]
+    #     fish["obstacle-range"][0] = fish["size"]
+    elif species == "Swallow":
+        swallow = behaviours["Swallow"]
+        swallow["max-velocity"][0] = swallow["cruising-speed"][4]
+        swallow["cruising-speed"][1] = swallow["max-velocity"][4]
+        swallow["comfort-zone"][0] = swallow["size"] + 1
+        swallow["danger-zone"][0] = swallow["size"]
+        swallow["danger-zone"][1] = swallow["comfort-zone"][4] -1
+        swallow["flockmate-range"][0] = swallow["comfort-zone"][4]
+        
     elif species == "Elephant":
         elephant = behaviours["Elephant"]
         elephant["max-velocity"][0] = elephant["cruising-speed"][4]
@@ -212,6 +219,11 @@ def factory(species, pos=None, state=None):
         animal = Elephant(pos)
         animal.loadState(state)
         return animal
+    
+    elif species == "Swallow":
+        animal = Swallow(pos)
+        animal.loadState(state)
+        return animal
         
     else:
         print("Species not in factory. Instantiating superclass.")
@@ -229,6 +241,8 @@ class Boid():
         self.tkImage = None
         self.imagePath = None
         self.canvasId = None
+        
+        self.isDead = False
         
         self.flock = Flock(species, members=[self])
         self.neighbours = []
@@ -273,10 +287,20 @@ class Boid():
         print("Loading image at", path)
         self.image = Image.open(path).resize((self.size, self.size))
         self.tkImage = ImageTk.PhotoImage(self.image)
-        self.imagePath = path       
+        self.imagePath = path      
+        
+    def kill(self):
+        self.isDead = True
+        if self.flock is not None:
+            self.flock.remove_member(self)
+            self.flock = None 
         
 
     def update(self, boids, terrain, obstacles, dt):
+        # if dead, do nothing
+        if self.isDead:
+            return
+        
         self.neighbours = self.computeNeighbours(boids)
         for neighbour in self.neighbours:
             if self.mergeFlock(neighbour):      #break if flock is merged
@@ -301,6 +325,9 @@ class Boid():
     
     def updateBehaviours(self, obstacles=None):
         """Update the boid's behaviours based on its current state."""
+        if self.isDead:
+            return
+        
         self.netForce = self.navigator(obstacles)
         
     def navigator(self, obstacles):
@@ -334,10 +361,31 @@ class Boid():
         acc *= behaviours[self.species]["max-acceleration"][4]*self.mass  # Scale by max acceleration * mass
         return acc
     
-    def updatePosition(self,terrain, dt):
-        gradVelocityComponent = dot(unit(self.velocity), terrain.gradientField[int(self.position[1])][int(self.position[0])])
-        slopeCorrectionFactor = 1/np.sqrt(gradVelocityComponent**2 +1)
-        self.position += slopeCorrectionFactor*self.velocity*dt
+    
+    def updatePosition(self, terrain, dt):
+        # Check bounds before accessing terrain data
+        x, y = self.position[0], self.position[1]
+        
+        if (x < 0 or x >= terrain.width or y < 0 or y >= terrain.height):
+            # If out of bounds, just update position without terrain influence
+            self.position += self.velocity * dt
+            return
+        
+        # Convert to integers for array indexing
+        x_int, y_int = int(x), int(y)
+        
+        # Double-check integer indices are still in bounds
+        if (x_int < 0 or x_int >= terrain.width or y_int < 0 or y_int >= terrain.height):
+            self.position += self.velocity * dt
+            return
+        
+        try:
+            gradVelocityComponent = dot(unit(self.velocity), terrain.gradientField[y_int][x_int])
+            slopeCorrectionFactor = 1/np.sqrt(gradVelocityComponent**2 + 1)
+            self.position += slopeCorrectionFactor * self.velocity * dt
+        except (IndexError, AssertionError):
+            # Fallback to simple position update if terrain access fails
+            self.position += self.velocity * dt
     
     def updateVelocity(self, dt):
         self.velocity += self.acceleration*dt
@@ -375,6 +423,34 @@ class Boid():
             if (hitBottom or hitTop):
                 self.position[1] = (self.size/2 if hitTop else h-self.size/2)
                 self.velocity[1] *= -1
+        elif borderType == "Void":
+            if (self.position[0] < -self.size or self.position[0] > w+self.size or
+                self.position[1] < -self.size or self.position[1] > h+self.size):
+                self.kill()
+        elif borderType == "Follow":
+            # Left border
+            if self.position[0] - self.size/2 <= 0:
+                self.position[0] = self.size/2
+                # Zero out x velocity, keep y
+                self.velocity[0] = 0
+                # Optionally nudge inward
+                self.position[0] += 1
+            # Right border
+            elif self.position[0] + self.size/2 >= w:
+                self.position[0] = w - self.size/2
+                self.velocity[0] = 0
+                self.position[0] -= 1
+            # Top border
+            if self.position[1] - self.size/2 <= 0:
+                self.position[1] = self.size/2
+                self.velocity[1] = 0
+                self.position[1] += 1
+            # Bottom border
+            elif self.position[1] + self.size/2 >= h:
+                self.position[1] = h - self.size/2
+                self.velocity[1] = 0
+                self.position[1] -= 1
+            
     
     def computeNeighbours(self, boids):
         neighbours = []
@@ -641,16 +717,36 @@ class Boid():
     def handleTerrainType(self, terrainType, grad=None):
         return False
         
-   
+
     def navigateTerrain(self, terrain):
-        grad = terrain.gradientField[int(self.position[1])][int(self.position[0])]
-        # print(f"grad at ({self.position[0]}{self.position[1]}):", grad)
+        # More robust bounds checking - check both position components
+        x, y = self.position[0], self.position[1]
+        
+        # Check bounds before any terrain access
+        if (x < 0 or x >= terrain.width or y < 0 or y >= terrain.height):
+            return
+        
+        # Convert to integers for array indexing
+        x_int, y_int = int(x), int(y)
+        
+        # Double-check integer indices are still in bounds (handles edge cases)
+        if (x_int < 0 or x_int >= terrain.width or y_int < 0 or y_int >= terrain.height):
+            return
+        
+        try:
+            grad = terrain.gradientField[y_int][x_int]
+            terrainType = terrain.typeAt(x, y)  # This calls the method that has the assertion
+        except (IndexError, AssertionError):
+            # Position is out of bounds, skip terrain navigation
+            return
+        
         slope = magnitude(grad)
-        terrainType = terrain.typeAt(self.position[0], self.position[1])
         
         F = np.array([0,0], dtype=float)
         
-        if self.handleTerrainType(terrainType, grad):
+        # let species handle special terrain types first, e.g. swimming, sliding
+        ignoreSlope = self.handleTerrainType(terrainType, grad)
+        if ignoreSlope:
             return
         
         if slope > 0:
@@ -680,6 +776,12 @@ class Sheep(Boid):
             self.netForce += streamForce
             return True
         
+        if terrainType == "Ice":
+            #limit max acceleration
+            self.netForce *= 0.25
+            return True
+            
+        
         return False
             
 
@@ -689,7 +791,7 @@ class Penguin(Boid):
         super().__init__(species="Penguin", pos=pos)
         self.mass = 1
         
-    def handleTerrainType(self, terrainType, grad=None):
+    def handleTerrainType(self, terrainType, grad=None): 
         if terrainType == "Water":
             # print(f"Applying swimming force.")
             swimming_strength = 5
@@ -718,6 +820,38 @@ class Elephant(Boid):
         # print(f"Creating elephant at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Elephant", pos=pos)
         self.mass = 2.0
+        
+class Swallow(Boid):
+    def __init__(self, pos):
+        # print(f"Creating bird at position: ({pos[0]},{pos[1]})")
+        super().__init__(species="Swallow", pos=pos)
+        self.mass = 0.5
+        
+    # ensure bird can fly over all terrain types, obstacles and other boids ignored
+    def navigateTerrain(self, terrain):
+        return
+    
+    def avoidObstacles(self, obstacles=None):
+        return np.array([0,0], dtype=float)
+    
+    def updatePosition(self, terrain, dt):
+        self.position += self.velocity * dt
+    
+    
+    def computeNeighbours(self, boids):
+        #override to ignore other species
+        neighbours = []
+        self.hasVisableNeighbours = False
+        for boid in boids:
+            if boid is self or boid.species != "Swallow": continue
+            r = boid.position - self.position
+            rxr = ssq(r)
+            if rxr <= behaviours[self.species]["flockmate-range"][4]**2:
+                theta = np.arccos(dot(unit(self.velocity), unit(r)))
+                if theta <= np.deg2rad(behaviours[self.species]["view-angle"][4]):
+                    neighbours.append(boid)
+                    self.hasVisableNeighbours = True
+        return neighbours       
 
 
 

@@ -110,11 +110,11 @@ class BehaviourTab(tk.Frame):
                 sliderrelief=tk.FLAT,
                 bd=1,
                 length=90,
-                showvalue=False,
-                command=lambda v, p=param, t=val_type: self.update_from_slider(v, p, t)
+                showvalue=False
             )
             slider.grid(row=0, column=2, padx=(2, 0))
             slider.set(val)
+            slider.config(command=lambda v, p=param, t=val_type: self.update_from_slider(v, p, t))
             
             #bind click to update last modified
             slider.bind("<ButtonRelease-1>", lambda event, p=param: 
