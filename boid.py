@@ -14,20 +14,20 @@ default_behaviours = {
         "herd-size": [1,30, 1, int, 20],
         "max-acceleration": [1, 100, 1, int, 30],
         "max-velocity": [1, 100, 1, int, 15],
-        "cruising-speed": [1,10,1,int,15], #[0,max-velocity,_,_]
+        "cruising-speed": [1,10,1,int,6], #[0,max-velocity,_,_]
         "comfort-zone": [16, 100,1,int,14], #[size, inf,_,_]
         "danger-zone": [16,40,1,int,9], #[size, comfort,_,_]
         "obstacle-range": [16,100,1,int,40], #[size, inf,_,_]
         "flockmate-range": [40,200,1,int,40], #[comfort, inf]
-        "view-angle": [1, 180,1,int,90],
+        "view-angle": [1, 180,1,int,180],
         "drag-factor": [0, 55, 1, int, 4]
     },
     "Elephant": {
         "size": 20,
         "herd-size": [1,20, 1, int, 6],
         "max-acceleration": [1, 100, 1, int, 10],
-        "max-velocity": [1, 100, 1, int, 3],
-        "cruising-speed": [1,10,1,int,3], #[0,max-velocity,_,_]
+        "max-velocity": [1, 100, 1, int, 20],
+        "cruising-speed": [1,10,1,int,9], #[0,max-velocity,_,_]
         "comfort-zone": [16, 100,1,int,30], #[size, inf,_,_]
         "danger-zone": [16,40,1,int,20], #[size, comfort,_,_]
         "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
@@ -43,35 +43,35 @@ default_behaviours = {
         "cruising-speed": [1,10,1,int,15], #[0,max-velocity,_,_]
         "comfort-zone": [16, 100,1,int,14], #[size, inf,_,_]
         "danger-zone": [16,40,1,int,9], #[size, comfort,_,_]
-        "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
-        "flockmate-range": [40,200,1,int,40], #[comfort, inf]
-        "view-angle": [1, 180,1,int,90],
+        "obstacle-range": [16,100,1,int,50], #[size, inf,_,_]
+        "flockmate-range": [40,200,1,int,100], #[comfort, inf]
+        "view-angle": [1, 180,1,int,130],
         "drag-factor": [0, 55, 1, int, 7]
     },
     "Penguin": {
         "size": 8,
         "herd-size": [1,100, 1, int, 100],
-        "max-acceleration": [1, 100, 1, int, 30],
+        "max-acceleration": [1, 100, 1, int, 40],
         "max-velocity": [1, 100, 1, int, 25],
-        "cruising-speed": [0,4,1,int,11], #[0,max-velocity,_,_]
+        "cruising-speed": [1,4,1,int,3], #[0,max-velocity,_,_]
         "comfort-zone": [32, 100,1,int,14], #[size, inf,_,_]
         "danger-zone": [32,40,1,int,9], #[size, comfort,_,_]
         "obstacle-range": [32,100,1,int,32], #[size, inf,_,_]
         "flockmate-range": [40,100,1,int,40], #[comfort, inf]
-        "view-angle": [1, 180,1,int,90],
-        "drag-factor": [0, 55, 1, int, 10],
+        "view-angle": [1, 180,1,int,110],
+        "drag-factor": [0, 55, 1, int, 25],
     },
     "Flamingo": {
         "size": 12,
         "herd-size": [1,30, 1, int, 20],
         "max-acceleration": [1, 100, 1, int, 30],
-        "max-velocity": [1, 100, 1, int, 15],
-        "cruising-speed": [1,10,1,int,1], #[0,max-velocity,_,_]
+        "max-velocity": [1, 100, 1, int, 20],
+        "cruising-speed": [1,10,1,int,15], #[0,max-velocity,_,_]
         "comfort-zone": [16, 100,1,int,14], #[size, inf,_,_]
         "danger-zone": [16,40,1,int,9], #[size, comfort,_,_]
         "obstacle-range": [16,100,1,int,32], #[size, inf,_,_]
         "flockmate-range": [40,200,1,int,40], #[comfort, inf]
-        "view-angle": [1, 180,1,int,90],
+        "view-angle": [1, 180,1,int,180],
         "drag-factor": [0, 55, 1, int, 30],
     },
     "Swallow": {
@@ -196,6 +196,7 @@ def accumulate(accumulatorVector, vectorToAdd):
         t = (-b + np.sqrt(b**2 - 4*a*c)) / (2*a)
         accumulatorVector[:] += t * vectorToAdd
         return 1
+    
         
 #### BOID FACTORY ####################################################
 def factory(species, pos=None, state=None):
@@ -222,6 +223,16 @@ def factory(species, pos=None, state=None):
     
     elif species == "Swallow":
         animal = Swallow(pos)
+        animal.loadState(state)
+        return animal
+    
+    elif species == "Fox":
+        animal = Fox(pos)
+        animal.loadState(state)
+        return animal
+    
+    elif species == "Flamingo":
+        animal = Flamingo(pos)
         animal.loadState(state)
         return animal
         
@@ -261,6 +272,17 @@ class Boid():
         self.acceleration = np.array([0, 0], dtype=float)
         self.netForce = np.array([0, 0], dtype=float)
         
+        self.hunger = 0
+        
+        #modifiers depending on terrain/state
+        self.speedModifier = 1.0
+        self.accelerationModifier = 1.0
+        # self.perceptionModifier = 1.0  
+        # self.obstacleModifier = 1.0
+        
+    def calculateDragForce(self, dragFactor):
+        return -dragFactor * self.velocity
+    
     def getState(self):
         return {
             "species": self.species,
@@ -317,11 +339,21 @@ class Boid():
         self.updateAcceleration()
         
         #terrain navigation behaviour
+        self.resetModifiers()
         self.navigateTerrain(terrain)
         self.updateAcceleration()
         
         self.updateVelocity(dt)
         self.updatePosition(terrain, dt)
+        self.updateHunger(dt)
+        
+    def updateHunger(self, dt):
+        """Update the boid's hunger state."""
+        self.hunger += dt * 0.01  # Increase hunger over time
+        
+    def resetModifiers(self):
+        self.speedModifier = 1.0
+        self.accelerationModifier = 1.0
     
     def updateBehaviours(self, obstacles=None):
         """Update the boid's behaviours based on its current state."""
@@ -392,11 +424,11 @@ class Boid():
         
         if ssq(self.velocity) > behaviours[self.species]["max-velocity"][4]**2:
             # Limit the velocity to max-velocity
-            self.velocity = unit(self.velocity) * behaviours[self.species]["max-velocity"][4]
+            self.velocity = unit(self.velocity) * self.speedModifier*behaviours[self.species]["max-velocity"][4]
             
     
     def updateAcceleration(self):
-        self.acceleration = self.netForce/self.mass
+        self.acceleration = self.accelerationModifier*self.netForce/self.mass
     
     def resizeImage(self, newSize):
         if self.size == newSize: return
@@ -467,7 +499,9 @@ class Boid():
                     self.hasVisableNeighbours = True
         return neighbours
     
-    def mergeFlock(self, other):      
+    def mergeFlock(self, other):
+        if self.isDead or other.isDead or self.flock is None or other.flock is None:
+            return False      
         if self.species == other.species:
             # Don't merge if they're already in the same flock
             if self.flock is other.flock:
@@ -510,6 +544,8 @@ class Boid():
     def maintainSpeed(self):
         current_speed = magnitude(self.velocity)
         target_speed = behaviours[self.species]["cruising-speed"][4]
+        
+        target_speed *= 0.4 if self.goal is None else 1.0
         
         if current_speed < target_speed * 0.8:  # If significantly below target
             if current_speed > 0.1:  # Avoid division by zero
@@ -706,14 +742,6 @@ class Boid():
         return force
                 
             
-            
-            
-            
-            
-            
-        
-        
-    
     def handleTerrainType(self, terrainType, grad=None):
         return False
         
@@ -768,18 +796,54 @@ class Sheep(Boid):
     def __init__(self, pos):
         # print(f"Creating sheep at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Sheep", pos=pos)
+        self.mass = 1.5
         
     def handleTerrainType(self, terrainType,grad):
+        #bad swimmers so water pushes them strongly
         if terrainType == "Water":
-            streamStrength = 30
-            streamForce = streamStrength * unit(grad)
-            self.netForce += streamForce
-            return True
+            slope = magnitude(grad)
+            
+            if slope > 0.01:  # If there's noticeable slope (flowing water)
+                # Push along gradient (stream/current)
+                streamStrength = 30
+                streamForce = streamStrength * unit(grad)
+                self.netForce += streamForce
+                return True
+            else:  # Flat water (pond/lake)
+                # Apply resistance - sheep struggle to swim in still water
+                resistance_strength = 15
+                resistance_force = -resistance_strength * self.velocity
+                self.netForce += resistance_force
+                self.accelerationModifier = 0.3
+                return False
         
         if terrainType == "Ice":
             #limit max acceleration
-            self.netForce *= 0.25
+            self.accelerationModifier = 0.1
             return True
+            
+        
+        if terrainType == "Snow":
+            self.accelerationModifier = 0.5
+            # Apply drag force to slow down the boid
+            self.netForce += self.calculateDragForce(8)
+            return False
+        
+        if terrainType == "Sand":
+            self.accelerationModifier = 0.5
+            # Apply drag force to slow down the boid
+            self.netForce += self.calculateDragForce(12)
+            return False
+            
+        if terrainType == "Rock":
+            # Apply drag force to slow down the boid
+            self.accelerationModifier = 0.8
+            self.netForce += self.calculateDragForce(2)
+            return False
+            
+        if terrainType == "Grass":
+            self.netForce += self.calculateDragForce(1.5)
+            return False
             
         
         return False
@@ -789,21 +853,45 @@ class Penguin(Boid):
     def __init__(self, pos):
         # print(f"Creating penguin at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Penguin", pos=pos)
-        self.mass = 1
+        self.mass = 0.8
         
     def handleTerrainType(self, terrainType, grad=None): 
         if terrainType == "Water":
             # print(f"Applying swimming force.")
-            swimming_strength = 5
+            self.accelerationModifier = 2
+            self.speedModifier = 2
+            swimming_strength = 3
             swimming_force = swimming_strength * unit(self.velocity)
             self.netForce += swimming_force
             return True
+        
         elif terrainType == "Ice":
             print(f"Applying sliding force.")
-            sliding_strength = 1
+            self.speedModifier = 1.5
+            self.accelerationModifier = 0.4
+            sliding_strength = 2
             sliding_force = sliding_strength * unit(self.velocity)
             self.netForce += sliding_force
             return True
+        
+        if terrainType == "Snow":
+            # print(f"Applying wading force.")
+            self.netForce += self.calculateDragForce(4)
+            return False
+        
+        if terrainType == "Sand":
+            self.accelerationModifier = 0.8
+            self.netForce += self.calculateDragForce(12)
+            return False
+        
+        if terrainType == "Rock":
+            self.accelerationModifier = 0.5
+            self.netForce += self.calculateDragForce(11)
+            return False
+            
+        if terrainType == "Grass":
+            self.netForce += self.calculateDragForce(1.5)
+            return False
         
         return False
 
@@ -819,7 +907,35 @@ class Elephant(Boid):
     def __init__(self, pos):
         # print(f"Creating elephant at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Elephant", pos=pos)
-        self.mass = 2.0
+        self.mass = 3.0
+    
+    def handleTerrainType(self, terrainType, grad=None):
+        if terrainType == "Water":
+            # print(f"Applying wading force.")
+            self.netForce += self.calculateDragForce(1.5)
+            return True
+        
+        if terrainType == "Snow":
+            # print(f"Applying wading force.")
+            self.accelerationModifier = 0.8
+            self.netForce += self.calculateDragForce(2)
+            return False
+        
+        if terrainType == "Ice":
+            self.accelerationModifier = 0.1
+            return True
+        
+        if terrainType == "Sand":
+            self.accelerationModifier = 0.8
+            self.netForce += self.calculateDragForce(1.5)
+            return False
+        
+        if terrainType == "Grass":
+            self.netForce += self.calculateDragForce(1.5)
+            return False
+        
+        return False
+
         
 class Swallow(Boid):
     def __init__(self, pos):
@@ -853,6 +969,83 @@ class Swallow(Boid):
                     self.hasVisableNeighbours = True
         return neighbours       
 
+class Fox(Boid):
+    def __init__(self, pos):
+        # print(f"Creating fox at position: ({pos[0]},{pos[1]})")
+        super().__init__(species="Fox", pos=pos)
+        self.mass = 1.2
+        
+    def handleTerrainType(self, terrainType, grad=None):
+        if terrainType == "Water":
+            slope = magnitude(grad)
+            
+            if slope > 0.01:  # If there's noticeable slope (flowing water)
+                # Push along gradient (stream/current)
+                streamStrength = 20
+                streamForce = streamStrength * unit(grad)
+                self.netForce += streamForce
+                return True
+            else:  # Flat water (pond/lake)
+                # Apply resistance
+                resistance_strength = 8
+                resistance_force = -resistance_strength * self.velocity
+                self.netForce += resistance_force
+                self.accelerationModifier = 0.3
+                return False
+            
+        if terrainType == "Snow":
+            # print(f"Applying wading force.")
+            self.netForce += self.calculateDragForce(4)
+            return False
+        
+        if terrainType == "Ice":
+            self.accelerationModifier = 0.5
+            return True
+        
+        if terrainType == "Sand":
+            self.accelerationModifier = 0.8
+            self.netForce += self.calculateDragForce(6)
+            return False
+            
+        if terrainType == "Rock":
+            self.accelerationModifier = 0.7
+            self.netForce += self.calculateDragForce(5)
+            return False
+        
+        if terrainType == "Grass":
+            self.netForce += self.calculateDragForce(1.5)
+            return False
+        
+        return False
+
+        
+class Flamingo(Boid):
+    def __init__(self, pos):
+        # print(f"Creating flamingo at position: ({pos[0]},{pos[1]})")
+        super().__init__(species="Flamingo", pos=pos)
+        self.mass = 1
+        
+    def handleTerrainType(self, terrainType, grad=None):
+        if terrainType == "Water":
+            # print(f"Applying wading force.")
+            self.netForce += self.calculateDragForce(12)
+            return True
+        if terrainType == "Snow":
+            # print(f"Applying wading force.")
+            self.netForce += self.calculateDragForce(15)
+        if terrainType == "Ice":
+            self.accelerationModifier = 0.1
+            return True
+        if terrainType == "Sand":
+            self.accelerationModifier = 0.8
+            self.netForce += self.calculateDragForce(4)
+        if terrainType == "Rock":
+            self.accelerationModifier = 0.7
+            self.netForce += self.calculateDragForce(10)
+        if terrainType == "Grass":
+            self.netForce += self.calculateDragForce(1.5)
+        
+        return False
 
 
 

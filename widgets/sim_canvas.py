@@ -102,7 +102,7 @@ class SimCanvas(tk.Canvas):
         self.waypoints = {species: None for species in behaviours.keys()}
         self.waypointImages = {"Sheep": ImageTk.PhotoImage(Image.open(f"icons/sheep_waypoint.png").resize((30, 30))),
                                "Penguin": ImageTk.PhotoImage(Image.open(f"icons/penguin_waypoint.png").resize((30, 30))),
-                               "Fox": ImageTk.PhotoImage(Image.open(f"icons/fox_waypoint.png").resize((30, 30))),
+                               "Fox": ImageTk.PhotoImage(Image.open(f"icons/fox_wp.png").resize((30, 30))),
                                "Swallow": ImageTk.PhotoImage(Image.open(f"icons/swallow_waypoint.png").resize((30,30))),
                                "Elephant": ImageTk.PhotoImage(Image.open(f"icons/elephant_waypoint.png").resize((30, 30))),
                                "Flamingo": ImageTk.PhotoImage(Image.open(f"icons/flamingo_waypoint.png").resize((30, 30)))}
@@ -224,15 +224,18 @@ class SimCanvas(tk.Canvas):
             for animal in self.spawned_boids[species]:
                 allBoids = list(itertools.chain.from_iterable(self.spawned_boids.values()))
                 
+                if animal.isDead:
+                    #if an animal has been killed either by a predator or other reasons, remove
+                    self.spawned_boids[species].remove(animal)
+                    continue
+                
                 if not isPaused and mediaState not in ["rewind", "fast-rewind"] and self.framePointer == self.numFrames - 1: # Update animal state only if not paused and media is running and we've restored all frames
                     animal.update(allBoids, self.terrain, self.obstacles, dt)
                     animal.setGoal(self.waypoints[species])
                     animal.handleBorder(self.controller.getBorderMode(), w=self.width, h=self.height)
-                if animal.isDead:
-                
-                    self.spawned_boids[species].remove(animal)
-                    animal.kill()   #remove from flock  #do this in the actual boid class. Just a reminder
-                    continue
+                    
+
+
                 self.create_image(animal.position[0], animal.position[1], image=self.boidImages[species], tags=("animal", species))
         
         # Draw waypoints
@@ -269,7 +272,7 @@ class SimCanvas(tk.Canvas):
         # Raise obstacles to the top layer
         self.tag_raise("obstacle")
         self.tag_raise("waypoint")
-        self.tag_raise("Bird")
+        self.tag_raise("Swallow")
         # self.tag_raise("obstacle_hitbox")
         self.after(int(1000 / fps), lambda: self.update(fps, tf))
         
@@ -279,7 +282,7 @@ class SimCanvas(tk.Canvas):
             # Semi-transparent overlay - better alignment
             self.pastOverlay = self.create_rectangle(
                 0, 0,  # Start just inside the border
-                self.width, self.height,  # End just inside the border
+                self.width+4, self.height+4,  # End just inside the border
                 fill="gray", 
                 stipple="gray25",  # Much lighter than gray50
                 outline="",  # Remove any outline
@@ -349,7 +352,7 @@ class SimCanvas(tk.Canvas):
             return
         
         ### Otherwise, we're in the present so save current state of simulation
-        print(f"Saving frame {self.framePointer}")
+        #print(f"Saving frame {self.framePointer}")
         
         frame = {"boids": None, "obstacles": None, "waypoints": None}
         
@@ -483,32 +486,51 @@ class SimCanvas(tk.Canvas):
                                         start=startTheta, extent= 2*viewAngle[4], fill=None, outline=arcColour, width=2, tags="visual_param")
    
     def fill_paint_window(self, e, terrain_type):
-        shape = self.terrain.contourImg.size
-        radius = paintWindowWidth // 2
-        radius_sq = radius * radius 
+        # Get proper width and height
+        width, height = self.terrain.contourImg.size
         
-        mask = np.zeros(shape, dtype=bool)
-        x_start = max(0, e.x - radius)
-        x_end = min(self.width + 4, e.x + radius)
-        y_start = max(0, e.y - radius)
-        y_end = min(self.height + 4, e.y + radius)
+        if self.controller.get_brush_shape() == "Square":
+            half_width = paintWindowWidth // 2
+            
+            # Calculate the intended brush area (can be negative or exceed bounds)
+            brush_x_start = e.x - half_width
+            brush_x_end = e.x + half_width
+            brush_y_start = e.y - half_width
+            brush_y_end = e.y + half_width
+            
+            # Clip to canvas boundaries
+            x_start = max(0, brush_x_start)
+            x_end = min(width, brush_x_end)
+            y_start = max(0, brush_y_start)
+            y_end = min(height, brush_y_end)
+            
+            # Create mask with correct dimensions
+            mask = np.zeros((height, width), dtype=bool)
+            
+            # Only fill the valid region
+            if x_end > x_start and y_end > y_start:
+                mask[y_start:y_end, x_start:x_end] = True
+                
+        else:  # Circle brush
+            radius = paintWindowWidth // 2
+            radius_sq = radius * radius 
+            
+            # Create mask with correct dimensions
+            mask = np.zeros((height, width), dtype=bool)
+            
+            for x in range(max(0, e.x - radius), min(width, e.x + radius)):
+                for y in range(max(0, e.y - radius), min(height, e.y + radius)):
+                    if (x - e.x) ** 2 + (y - e.y) ** 2 <= radius_sq:
+                        mask[y, x] = True
         
-        for x in range(x_start, x_end):
-            for y in range(y_start, y_end):
-                if (x - e.x) ** 2 + (y - e.y) ** 2 <= radius_sq:
-                    mask[y, x] = True
-        # Convert mask to a list of coordinates
-        
-        mask_copy = mask
-        # Reverse operation
-        typegrid = np.array(self.terrain.typegrid)
+        mask_copy = np.copy(mask)
+        typegrid = np.copy(self.terrain.typegrid)
         backward = functools.partial(self.terrain.overwriteRegion, mask_copy, typegrid)
         
         forward = functools.partial(self.terrain.color_region, mask, terrain_type)
         forward()
         self.setBgImage(self.terrain.contourImg)
                             
-        # Add operations to current frame accumulator instead of overwriting
         self.currentFrameTerrainOps.append((backward, forward))
         
     def color_contour(self, e, terrain_type):
@@ -569,6 +591,68 @@ class SimCanvas(tk.Canvas):
                 hitboxOffset = obstacles[terrain]["hitbox-offset"]
                 self.obstacles.append((terrain, e.x, e.y, hitboxRadius,hitboxOffset, tkImage))
                 
+            elif terrain in ["Eraser"]:
+                # remove obstacle or boid if clicked on one i.e window width is 0
+                if paintWindowWidth == 0:
+                    #find obstacle at click position
+                    for obstacle in self.obstacles:
+                        obstacle_type, x, y, _, _, _ = obstacle
+                        size = obstacles[obstacle_type]["size"]
+                        half_size = size // 2
+                        if (e.x >= x - half_size and e.x <= x + half_size and
+                            e.y >= y - half_size and e.y <= y + half_size):
+                            self.obstacles.remove(obstacle)
+                            break
+                    
+                    for boid in itertools.chain.from_iterable(self.spawned_boids.values()):
+                        boid_size = behaviours[boid.species]["size"]
+                        half_size = boid_size // 2
+                        if (e.x >= boid.position[0] - half_size and e.x <= boid.position[0] + half_size and
+                            e.y >= boid.position[1] - half_size and e.y <= boid.position[1] + half_size):
+                            boid.kill()
+                            break
+                
+                # else if window width is bigger remove all obstacles in the paint window
+                else:
+                    #loop through all obstacles and boids
+                    obstacles_to_remove = []
+                    boids_to_remove = []
+                    
+                    for obstacle in self.obstacles:
+                        obstacle_type, x, y, _, _, _ = obstacle
+                        size = obstacles[obstacle_type]["size"]
+                        half_size = size // 2
+                        
+                        #check if obstacle is in paint window
+                        if self.controller.get_brush_shape() == "Square":
+                            half_width = paintWindowWidth // 2
+                            if (x + half_size >= e.x - half_width and x - half_size <= e.x + half_width and
+                                y + half_size >= e.y - half_width and y - half_size <= e.y + half_width):
+                                obstacles_to_remove.append(obstacle)
+                        else:  # Circle brush
+                            radius = paintWindowWidth // 2
+                            if (x - e.x) ** 2 + (y - e.y) ** 2 <= radius ** 2:
+                                obstacles_to_remove.append(obstacle)
+                                
+                    for _, boids in self.spawned_boids.items():
+                        for boid in boids:
+                            if self.controller.get_brush_shape() == "Square":
+                                half_width = paintWindowWidth // 2
+                                if (boid.position[0] >= e.x - half_width and boid.position[0] <= e.x + half_width and
+                                    boid.position[1] >= e.y - half_width and boid.position[1] <= e.y + half_width):
+                                    boids_to_remove.append(boid)
+                            else:  # Circle brush
+                                radius = paintWindowWidth // 2
+                                if (boid.position[0] - e.x) ** 2 + (boid.position[1] - e.y) ** 2 <= radius ** 2:
+                                    boids_to_remove.append(boid)
+                    
+                    for obs in obstacles_to_remove:
+                        self.obstacles.remove(obs)
+                        
+                    for boid in boids_to_remove:
+                        boid.kill()
+
+                
                     
                     
             # b) OTHERWISE IF A TERRAIN TYPE IS SELECTED        
@@ -591,24 +675,85 @@ class SimCanvas(tk.Canvas):
         if self.controller.get_selected_animal() != None or self.controller.get_selected_terrain() in ["Tree", "Boulder", "Bush"]:
             self.config(cursor="hand2")
         
-        elif self.controller.get_selected_terrain() not in ["Tree", "Boulder", "Bush", None]:
+        elif self.controller.get_selected_terrain() not in ["Tree", "Boulder", "Bush", "Eraser", None]:
             self.config(cursor="none")
             #delete previous window
             self.delete(self.windowRec)
             
-            #draw new window
-            # self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
-            
-            if self.isPainting:
+            brush_shape = self.controller.get_brush_shape()
+        
+            if self.isPainting and paintWindowWidth > 0:
                 self.fill_paint_window(e, self.controller.get_selected_terrain())
-                self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#FF0000", width=5 )
+                if brush_shape == "Square":
+                    self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#FF0000", width=5)
+                else:
+                    self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#FF0000", width=5 )
             else:
                 if paintWindowWidth == 0:
                     self.delete("paint_bucket")
                     self.create_image(e.x, e.y, image=self.paintBucketIcon, tags="paint_bucket")
                 else:
                     self.delete("paint_bucket")
+                    if brush_shape == "Square":
+                        self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
+                    else:
+                        self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+        
+        elif self.controller.get_selected_terrain() == "Eraser":
+            self.config(cursor="none")
+            #delete previous window
+            self.delete(self.windowRec)
+            
+            #draw new window
+            if paintWindowWidth == 0:
+                self.delete("paint_bucket")
+                self.configure(cursor="X_cursor")
+            else:
+                self.delete("paint_bucket")
+                if self.controller.get_brush_shape() == "Square":
+                    self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
+                else:
                     self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+                if self.isPainting:
+                    #loop through all obstacles and boids
+                    obstacles_to_remove = []
+                    boids_to_remove = []
+                    for obstacle in self.obstacles:
+                        obstacle_type, x, y, _, _, _ = obstacle
+                        size = obstacles[obstacle_type]["size"]
+                        half_size = size // 2
+                        
+                        #check if obstacle is in paint window
+                        if self.controller.get_brush_shape() == "Square":
+                            half_width = paintWindowWidth // 2
+                            if (x + half_size >= e.x - half_width and x - half_size <= e.x + half_width and
+                                y + half_size >= e.y - half_width and y - half_size <= e.y + half_width):
+                                obstacles_to_remove.append(obstacle)
+                        else:  # Circle brush
+                            radius = paintWindowWidth // 2
+                            if (x - e.x) ** 2 + (y - e.y) ** 2 <= radius ** 2:
+                                obstacles_to_remove.append(obstacle)
+                    
+                    #check for boids in paint window
+                    for _, boids in self.spawned_boids.items():
+                        for boid in boids:
+                            if self.controller.get_brush_shape() == "Square":
+                                half_width = paintWindowWidth // 2
+                                if (boid.position[0] >= e.x - half_width and boid.position[0] <= e.x + half_width and
+                                    boid.position[1] >= e.y - half_width and boid.position[1] <= e.y + half_width):
+                                    boids_to_remove.append(boid)
+                            else:  # Circle brush
+                                radius = paintWindowWidth // 2
+                                if (boid.position[0] - e.x) ** 2 + (boid.position[1] - e.y) ** 2 <= radius ** 2:
+                                    boids_to_remove.append(boid)
+                    
+                    for obs in obstacles_to_remove:
+                        self.obstacles.remove(obs)
+                        
+                    for boid in boids_to_remove:
+                        boid.kill()
+                
+        
         else:
             self.config(cursor="arrow")
      
@@ -620,7 +765,7 @@ class SimCanvas(tk.Canvas):
     def handleScrollWheel(self, e):
         global paintWindowWidth
         
-        if self.controller.get_selected_terrain() in ["Rock", "Sand", "Water", "Ice", "Snow", "Grass"]:
+        if self.controller.get_selected_terrain() in ["Rock", "Sand", "Water", "Ice", "Snow", "Grass", "Eraser"]:
             if e.num == 4 or e.delta > 0:
                 self.delete("paint_bucket")
                 print(f"Increasing brush size: {paintWindowWidth}")
@@ -635,11 +780,17 @@ class SimCanvas(tk.Canvas):
             
             #draw new window
             if self.mouseOnCanvas and paintWindowWidth > 0:
-                #self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
-                self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+                self.config(cursor="none")
+                if self.controller.get_brush_shape() == "Square":
+                    self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
+                else:
+                    self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
             elif self.mouseOnCanvas and paintWindowWidth == 0:
                 self.delete("paint_bucket")
-                self.create_image(e.x, e.y, image=self.paintBucketIcon, tags="paint_bucket")
+                if self.controller.get_selected_terrain() != "Eraser":
+                    self.create_image(e.x, e.y, image=self.paintBucketIcon, tags="paint_bucket")
+                else:
+                    self.config(cursor="X_cursor")
             
     def handleRightClick(self,e):
         # we can't interact with the canvas during rewinding

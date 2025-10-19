@@ -5,7 +5,7 @@ from widgets.media_controller import MediaController
 from widgets.sim_canvas import SimCanvas
 
 #### SIMULATION CLASS ####################
-windowSizeMap = {"small": "680x490", "large": "810x600"}
+windowSizeMap = {"small": "680x490", "large": "810x615"}
 canvasMultiplier = {"small": 1.5, "large": 2}
 
 class Simulation(tk.Tk):
@@ -26,10 +26,9 @@ class Simulation(tk.Tk):
         self.canvas = SimCanvas(self, terrain, self.controller, self.media)
         
         
-        #Focus widget on click
-        self.bind_all("<Button-1>", lambda event: (
-            event.widget.focus_set()
-            ))
+        # Only set focus for entry fields, not buttons
+        self.bind_all("<Button-1>", lambda e: e.widget.focus_set()
+                    if isinstance(e.widget, (tk.Entry, tk.Text)) else None)
         
 
     ### b) Function to center window on screen        
@@ -40,7 +39,9 @@ class Simulation(tk.Tk):
         win_height = int(windowSizeMap[terrainSize].split("x")[1])
 
         x = (screen_width // 2) - (win_width // 2)
-        y = (screen_height // 2) - (win_height // 2)
+        # shift the window up a bit (adjust shift_pixels as desired)
+        shift_pixels = 30
+        y = (screen_height // 2) - (win_height // 2) - shift_pixels
         self.geometry(f"+{x}+{y}")
     
         

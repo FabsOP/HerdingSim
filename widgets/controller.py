@@ -21,7 +21,17 @@ class Controller(tk.Frame):
         style.configure("TNotebook.Tab", background="#E2F0D9", foreground="#4C6B32", font=("Comic Sans MS", 9, "bold"))
         style.map("TNotebook.Tab", background=[("selected", "#C1E1C1")])
 
-        notebook = ttk.Notebook(self)
+        style.layout("Tab",
+        [('Notebook.tab', {'sticky': 'nswe', 'children':
+            [('Notebook.padding', {'side': 'top', 'sticky': 'nswe', 'children':
+                #[('Notebook.focus', {'side': 'top', 'sticky': 'nswe', 'children':
+                    [('Notebook.label', {'side': 'top', 'sticky': ''})],
+                #})],
+            })],
+        })]
+        )
+
+        notebook = ttk.Notebook(self, takefocus=False)
         notebook.pack(fill="both", expand=True)
 
         # Create individual tabs
@@ -46,8 +56,13 @@ class Controller(tk.Frame):
         self.behaviourTab = BehaviourTab(tab3)
         self.behaviourTab.pack(fill="both", expand=True)
         
+        self.after(100, lambda: self.focus_set())
+        
     def get_selected_animal(self):
         return self.speciesTab.selected_animal
+    
+    def get_brush_shape(self):
+        return self.terrainTab.brush_shape_var.get()
     
     def getBorderMode(self):
         return self.speciesTab.borderVar.get()

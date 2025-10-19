@@ -1,9 +1,10 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, simpledialog
 import pickle as pkl
 from PIL import Image, ImageTk
 import os
 import sys
+import webbrowser
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from terrain import Terrain
@@ -40,6 +41,82 @@ class TerrainLoader(tk.Tk):
         main_frame = tk.Frame(self, bg="#F5FBEF")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
+
+        # Section 2: Terrain Selection
+        terrain_section = tk.Frame(main_frame, bg="#F5FBEF", highlightbackground="#4C6B32", highlightthickness=2, relief="solid")
+        terrain_section.pack(fill="x", pady=(0, 20))
+        
+        terrain_inner = tk.Frame(terrain_section, bg="#F5FBEF")
+        terrain_inner.pack(padx=15, pady=15, fill="both", expand=True)
+
+        # Container for the entire section content
+        content_container = tk.Frame(terrain_inner, bg="#F5FBEF")
+        content_container.pack(fill="both", expand=True)
+        
+        # Download button frame with green background (positioned at top right)
+        download_frame = tk.Frame(content_container, bg="#F5FBEF")
+        download_frame.place(relx=1.0, rely=0.0, anchor="ne")
+        
+        # Download hyperlink label
+        download_label = tk.Label(
+            download_frame,
+            text="Download more\nheightmaps online",
+            bg="#F5FBEF",
+            fg="#0000EE",
+            font=("Comic Sans MS", 8, "underline"),
+            justify="center",
+            cursor="hand2",
+            padx=10,
+            pady=8
+        )
+        download_label.pack()
+        download_label.bind("<Button-1>", lambda e: self.open_heightmap_website())
+        
+        # Heading (centered)
+        heading2 = tk.Label(content_container, text="Saved Heightmaps", bg="#F5FBEF", fg="#4C6B32", font=("Comic Sans MS", 14, "bold"))
+        heading2.pack(pady=(0, 15))
+
+        # Terrain selector frame
+        terrainsFrame = tk.Frame(terrain_inner, bg="#F5FBEF")
+        terrainsFrame.pack(pady=(0, 15))
+        
+        self.leftTerrainArrow = tk.Button(
+            terrainsFrame, image=self.leftArrowImg, command=self.prev_terrain,
+            bg="#F5FBEF", borderwidth=0, activebackground="#C1E1C1", relief="raised"
+        )
+        self.leftTerrainArrow.grid(row=0, column=0, padx=(0, 15))
+        
+        self.terrainName = tk.Label(
+            terrainsFrame, text=self.savedTerrains[self.selectedTerrainIdx]["name"],
+            bg="#F5FBEF", fg="#4C6B32", font=("Comic Sans MS", 12, "bold"), width=25,
+            relief="solid", borderwidth=2, pady=10
+        )
+        self.terrainName.grid(row=0, column=1, padx=10)
+
+        self.rightTerrainArrow = tk.Button(
+            terrainsFrame, image=self.rightArrowImg, command=self.next_terrain,
+            bg="#F5FBEF", borderwidth=0, activebackground="#C1E1C1", relief="raised"
+        )
+        self.rightTerrainArrow.grid(row=0, column=2, padx=(15, 0))
+        
+        # Buttons frame
+        buttons_frame = tk.Frame(terrain_inner, bg="#F5FBEF")
+        buttons_frame.pack()
+
+        self.uploadBtn = tk.Button(
+            buttons_frame, text="Upload Heightmap", command=self.upload_heightmap,
+            bg="#4C6B32", fg="white", font=("Comic Sans MS", 10, "bold"), 
+            padx=15, pady=8, relief="raised", borderwidth=2
+        )
+        self.uploadBtn.pack(side="left", padx=(0, 10))
+
+        self.deleteBtn = tk.Button(
+            buttons_frame, text="Delete Heightmap", command=self.delete_heightmap,
+            bg="#8B0000", fg="white", font=("Comic Sans MS", 10, "bold"), 
+            padx=15, pady=8, relief="raised", borderwidth=2
+        )
+        self.deleteBtn.pack(side="left")
+        
         # Section 1: Biome Selection
         biome_section = tk.Frame(main_frame, bg="#F5FBEF", highlightbackground="#4C6B32", highlightthickness=2, relief="solid")
         biome_section.pack(fill="x", pady=(0, 20))
@@ -97,57 +174,6 @@ class TerrainLoader(tk.Tk):
             fg="#4C6B32", font=("Comic Sans MS", 12, "bold")
         )
         self.biomeDisplay.grid(row=1, column=2, pady=(15, 0))
-
-        # Section 2: Terrain Selection
-        terrain_section = tk.Frame(main_frame, bg="#F5FBEF", highlightbackground="#4C6B32", highlightthickness=2, relief="solid")
-        terrain_section.pack(fill="x", pady=(0, 20))
-        
-        terrain_inner = tk.Frame(terrain_section, bg="#F5FBEF")
-        terrain_inner.pack(padx=15, pady=15)
-
-        heading2 = tk.Label(terrain_inner, text="Saved Heightmaps", bg="#F5FBEF", fg="#4C6B32", font=("Comic Sans MS", 14, "bold"))
-        heading2.pack(pady=(0, 15))
-
-        # Terrain selector frame
-        terrainsFrame = tk.Frame(terrain_inner, bg="#F5FBEF")
-        terrainsFrame.pack(pady=(0, 15))
-        
-        self.leftTerrainArrow = tk.Button(
-            terrainsFrame, image=self.leftArrowImg, command=self.prev_terrain,
-            bg="#F5FBEF", borderwidth=0, activebackground="#C1E1C1", relief="raised"
-        )
-        self.leftTerrainArrow.grid(row=0, column=0, padx=(0, 15))
-        
-        self.terrainName = tk.Label(
-            terrainsFrame, text=self.savedTerrains[self.selectedTerrainIdx]["name"],
-            bg="#F5FBEF", fg="#4C6B32", font=("Comic Sans MS", 12, "bold"), width=25,
-            relief="solid", borderwidth=2, pady=10
-        )
-        self.terrainName.grid(row=0, column=1, padx=10)
-
-        self.rightTerrainArrow = tk.Button(
-            terrainsFrame, image=self.rightArrowImg, command=self.next_terrain,
-            bg="#F5FBEF", borderwidth=0, activebackground="#C1E1C1", relief="raised"
-        )
-        self.rightTerrainArrow.grid(row=0, column=2, padx=(15, 0))
-        
-        # Buttons frame
-        buttons_frame = tk.Frame(terrain_inner, bg="#F5FBEF")
-        buttons_frame.pack()
-
-        self.uploadBtn = tk.Button(
-            buttons_frame, text="Upload Heightmap", command=self.upload_heightmap,
-            bg="#4C6B32", fg="white", font=("Comic Sans MS", 10, "bold"), 
-            padx=15, pady=8, relief="raised", borderwidth=2
-        )
-        self.uploadBtn.pack(side="left", padx=(0, 10))
-
-        self.deleteBtn = tk.Button(
-            buttons_frame, text="Delete Heightmap", command=self.delete_heightmap,
-            bg="#8B0000", fg="white", font=("Comic Sans MS", 10, "bold"), 
-            padx=15, pady=8, relief="raised", borderwidth=2
-        )
-        self.deleteBtn.pack(side="left")
 
         # Section 3: Start Simulation
         sim_section = tk.Frame(main_frame, bg="#F5FBEF")
@@ -282,6 +308,36 @@ class TerrainLoader(tk.Tk):
             )
             return
         
+        # Prompt user for terrain name BEFORE any processing
+        base_name = os.path.splitext(os.path.basename(file_path))[0]
+        terrain_name = simpledialog.askstring(
+            "Name Your Terrain",
+            "Enter a name for this terrain:",
+            initialvalue=base_name,
+            parent=self
+        )
+        
+        if not terrain_name:
+            return  # User cancelled or left empty
+        
+        # Clean the terrain name (remove invalid characters for filenames)
+        terrain_name = terrain_name.strip()
+        if not terrain_name:
+            messagebox.showwarning(
+                "Invalid Name",
+                "Terrain name cannot be empty."
+            )
+            return
+        
+        # Check for name uniqueness
+        existing_names = [t.get("full_name", t["name"]) for t in self.savedTerrains]
+        if terrain_name in existing_names:
+            messagebox.showerror(
+                "Duplicate Name",
+                f"A terrain with the name '{terrain_name}' already exists.\nPlease choose a different name."
+            )
+            return
+        
         try:
             # Check image dimensions
             # Define your standard terrain size (match flat terrain and simulation)
@@ -308,31 +364,20 @@ class TerrainLoader(tk.Tk):
             new_terrain = Terrain(STANDARD_SIZE, STANDARD_SIZE, invert=False)
             new_terrain.load(heightmap_path, "Grass", levels=15)
             
-            # Generate filename for save
-            base_name = os.path.splitext(os.path.basename(file_path))[0]
-            save_name = base_name
-            counter = 1
-            
-            # Ensure unique name
-            existing_names = [t["name"] for t in self.savedTerrains]
-            while save_name in existing_names:
-                save_name = f"{base_name}_{counter}"
-                counter += 1
-            
             # Save terrain to file
-            save_path = os.path.join("./saves", f"{save_name}.terrain")
+            save_path = os.path.join("./saves", f"{terrain_name}.terrain")
             with open(save_path, 'wb') as f:
                 pkl.dump(new_terrain, f)
             
             # Add to terrain list
-            
-            if len(save_name) > 18:
-                display_name = save_name[:18] + "..."
+            if len(terrain_name) > 18:
+                display_name = terrain_name[:18] + "..."
             else:
-                display_name = save_name
+                display_name = terrain_name
             
             self.savedTerrains.append({
                 "name": display_name,
+                "full_name": terrain_name,
                 "terrain": new_terrain
             })
             
@@ -342,7 +387,7 @@ class TerrainLoader(tk.Tk):
             
             messagebox.showinfo(
                 "Success",
-                f"Heightmap '{save_name}' uploaded successfully!"
+                f"Heightmap '{terrain_name}' uploaded successfully!"
             )
             
         except Exception as e:
@@ -367,7 +412,7 @@ class TerrainLoader(tk.Tk):
             )
             return
         
-        terrain_name = self.savedTerrains[self.selectedTerrainIdx]["full_name"]
+        terrain_name = self.savedTerrains[self.selectedTerrainIdx].get("full_name", self.savedTerrains[self.selectedTerrainIdx]["name"])
         
         # Confirm deletion
         result = messagebox.askyesno(
@@ -402,6 +447,17 @@ class TerrainLoader(tk.Tk):
             messagebox.showerror(
                 "Error",
                 f"Failed to delete heightmap:\n{str(e)}"
+            )
+
+    def open_heightmap_website(self):
+        """Open website to download heightmaps"""
+        url = "https://manticorp.github.io/unrealheightmap/index.html#latitude/35.362806018776496/longitude/138.7302017211914/zoom/13/outputzoom/14/width/512/height/512"  # Replace with your desired URL
+        if url:
+            webbrowser.open(url)
+        else:
+            messagebox.showinfo(
+                "Coming Soon",
+                "Heightmap download link will be added soon!"
             )
 
     def startSimulation(self):
