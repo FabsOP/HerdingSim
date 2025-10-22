@@ -511,17 +511,25 @@ class SimCanvas(tk.Canvas):
             if x_end > x_start and y_end > y_start:
                 mask[y_start:y_end, x_start:x_end] = True
                 
-        else:  # Circle brush
+        else:  # Circle brush - OPTIMIZED with NumPy vectorization
             radius = paintWindowWidth // 2
-            radius_sq = radius * radius 
             
-            # Create mask with correct dimensions
+            # Calculate bounding box
+            x_min = max(0, e.x - radius)
+            x_max = min(width, e.x + radius)
+            y_min = max(0, e.y - radius)
+            y_max = min(height, e.y + radius)
+            
+            # Create coordinate grids for the bounding box
+            y_coords, x_coords = np.ogrid[y_min:y_max, x_min:x_max]
+            
+            # Vectorized distance calculation
+            distances_sq = (x_coords - e.x) ** 2 + (y_coords - e.y) ** 2
+            circle_mask = distances_sq <= radius ** 2
+            
+            # Create full mask and insert the circle
             mask = np.zeros((height, width), dtype=bool)
-            
-            for x in range(max(0, e.x - radius), min(width, e.x + radius)):
-                for y in range(max(0, e.y - radius), min(height, e.y + radius)):
-                    if (x - e.x) ** 2 + (y - e.y) ** 2 <= radius_sq:
-                        mask[y, x] = True
+            mask[y_min:y_max, x_min:x_max] = circle_mask
         
         mask_copy = np.copy(mask)
         typegrid = np.copy(self.terrain.typegrid)

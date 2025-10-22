@@ -1,8 +1,10 @@
 import tkinter as tk
 import copy
-from boid import default_behaviours, behaviours, param_short_names,updateParamBoundaries
+from boid import default_behaviours, behaviours, param_short_names,updateParamBoundaries, tooltips
 import boid
 import time
+from tktooltip import ToolTip
+
 
 class BehaviourTab(tk.Frame):
     def __init__(self, parent):
@@ -12,7 +14,7 @@ class BehaviourTab(tk.Frame):
         self.species = list(default_behaviours.keys())
         self.selection = self.species[0]
         self.selector_idx = 0
-
+    
         header_frame = tk.Frame(self, bg="#F5FBEF")
         header_frame.pack(fill="x", pady=(5, 0))
 
@@ -76,6 +78,9 @@ class BehaviourTab(tk.Frame):
             # Parameter label
             tk.Label(param_frame, text=param_short_names[param], width=10, bg="#F5FBEF",
                      fg="#4C6B32", font=("Comic Sans MS", 8)).grid(row=0, column=0, sticky="w")
+            
+            #tool tip to label
+            ToolTip(param_frame.winfo_children()[-1], msg=tooltips.get(param, ""), delay=1, bd=1, font=("Comic Sans MS", 8, "bold"), bg="#E2F0D9", fg="#4C6B32")
 
             # Value entry field
             value_str = f"{val:.1f}" if val_type == float else str(int(val))

@@ -47,9 +47,9 @@ class TerrainTab(tk.Frame):
                     ("icons/snow.png", "Snow", "Snowy terrain, slows down movement"),
                     ("icons/water.png", "Water" ,"Slows movement for non-aquatic animals. Semi-aquatic creatures thrive."),
                     ("icons/tree.png", "Tree", "Provides shade and shelter."),
-                    ("icons/bush.png", "Bush", "Decreases visibility and provides cover."),
+                    ("icons/bush.png", "Bush", "Dense foliage, ideal for hiding from predators."),
                     ("icons/boulder.png", "Boulder", "A large rock that can block paths or provide cover."),
-                    ("icons/eraser.png", "Eraser", "Removes animals or obstacles")]
+                    ("icons/eraser.png", "Eraser", "Removes animals or obstacles from the environment."),]
         
         for i, icon in enumerate(btnIcons):
             image = Image.open(icon[0])

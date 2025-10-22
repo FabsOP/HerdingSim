@@ -13,7 +13,7 @@ default_behaviours = {
         "size": 12,
         "herd-size": [1,30, 1, int, 20],
         "max-acceleration": [1, 100, 1, int, 30],
-        "max-velocity": [1, 100, 1, int, 15],
+        "max-velocity": [1, 100, 1, int, 18],
         "cruising-speed": [1,10,1,int,6], #[0,max-velocity,_,_]
         "comfort-zone": [16, 100,1,int,14], #[size, inf,_,_]
         "danger-zone": [16,40,1,int,9], #[size, comfort,_,_]
@@ -107,6 +107,20 @@ param_short_names = {
 }
 
 lastModified = None
+
+#tooltips for params
+tooltips = {
+    "max-acceleration": "Maximum acceleration the boid can achieve.",
+    "max-velocity": "Maximum velocity the boid can achieve.",
+    "herd-size": "Maximum number of boids allowed in a single flock.",
+    "cruising-speed": "Preferred navigation speed of the boid.",
+    "comfort-zone": "Distance an animal maintains from others to feel comfortable.",
+    "danger-zone": "Distance within which an animal is too close for comfort.",
+    "obstacle-range": "Distance at which an animal starts to avoid obstacles.",
+    "flockmate-range": "Distance within which other animals can join the flock.",
+    "view-angle": "Field of view angle for perceiving other animals.",
+    "drag-factor": "Factor determining resistance to movement across terrain contours.",
+}
 
 def updateParamBoundaries(species):
     if species == "Sheep":
@@ -335,7 +349,7 @@ class Boid():
             self.leaveFlock()
         
         #flocking behaviours
-        self.updateBehaviours(obstacles)    
+        self.updateBehaviours(obstacles, boids)    
         self.updateAcceleration()
         
         #terrain navigation behaviour
@@ -349,20 +363,20 @@ class Boid():
         
     def updateHunger(self, dt):
         """Update the boid's hunger state."""
-        self.hunger += dt * 0.01  # Increase hunger over time
+        self.hunger += dt  # Increase hunger over time
         
     def resetModifiers(self):
         self.speedModifier = 1.0
         self.accelerationModifier = 1.0
     
-    def updateBehaviours(self, obstacles=None):
+    def updateBehaviours(self, obstacles=None, boids=None):
         """Update the boid's behaviours based on its current state."""
         if self.isDead:
             return
         
-        self.netForce = self.navigator(obstacles)
+        self.netForce = self.navigator(obstacles, boids)
         
-    def navigator(self, obstacles):
+    def navigator(self, obstacles, boids=None):
         acc = np.array([0, 0], dtype=float)
         mag = 0
         
@@ -798,6 +812,8 @@ class Sheep(Boid):
         super().__init__(species="Sheep", pos=pos)
         self.mass = 1.5
         
+        self.predators = ["Fox"]
+        
     def handleTerrainType(self, terrainType,grad):
         #bad swimmers so water pushes them strongly
         if terrainType == "Water":
@@ -847,13 +863,119 @@ class Sheep(Boid):
             
         
         return False
+
+    def flee(self, boids):
+        """Improved flee from nearby predators"""
+        if not boids:
+            return np.array([0, 0], dtype=float)
+        
+        flee_vector = np.array([0, 0], dtype=float)
+        closest_threat_dist = float('inf')
+        
+        for boid in boids:
+            if boid.species not in self.predators or boid.isDead:
+                continue
             
+            # Vector from predator to self
+            r = self.position - boid.position
+            dist_sq = ssq(r)
+            
+            # Define detection ranges based on urgency
+            panic_range_sq = 50**2      # Immediate danger
+            alert_range_sq = 150**2     # General awareness
+            
+            # Check if predator is visible (within view angle)
+            if dist_sq > 0.01:  # Avoid division by zero
+                # Use velocity if moving, otherwise check all directions
+                if ssq(self.velocity) > 0.1:
+                    view_direction = unit(self.velocity)
+                else:
+                    # If stationary, can see in all directions
+                    view_direction = unit(r)
+                
+                angle_cos = dot(view_direction, unit(r))
+                view_angle_cos = np.cos(np.deg2rad(behaviours[self.species]["view-angle"][4]))
+                
+                # If behind us but close, still flee (peripheral awareness)
+                if angle_cos < view_angle_cos and dist_sq > panic_range_sq:
+                    continue  # Predator is behind and not too close
+            
+            # If within detection range, flee
+            if dist_sq < alert_range_sq:
+                # Scale urgency based on distance
+                if dist_sq < panic_range_sq:
+                    urgency = 1.0  # Maximum urgency
+                else:
+                    # Gradual urgency increase as predator gets closer
+                    urgency = 1.0 - (dist_sq - panic_range_sq) / (alert_range_sq - panic_range_sq)
+                    urgency = max(0.3, urgency)  # Minimum 30% urgency
+                
+                # Consider predator's heading
+                predator_velocity_towards = -dot(unit(boid.velocity), unit(r))
+                if predator_velocity_towards > 0.3:  # Predator moving towards us
+                    urgency *= 1.5  # Increase urgency
+                
+                # Desired flee velocity
+                if dist_sq < panic_range_sq:
+                    # Panic - flee at max speed
+                    desired_velocity = unit(r) * behaviours[self.species]["max-velocity"][4]
+                else:
+                    # Alert - flee at scaled speed
+                    desired_velocity = unit(r) * behaviours[self.species]["cruising-speed"][4] * urgency
+                
+                # Calculate flee force
+                flee_force = (desired_velocity - self.velocity) / (behaviours[self.species]["max-velocity"][4] / 2)
+                flee_force *= urgency
+                
+                flee_vector += flee_force
+                closest_threat_dist = min(closest_threat_dist, dist_sq)
+        
+        if ssq(flee_vector) > 1:
+            return unit(flee_vector)
+        return flee_vector
+    
+    def navigator(self, obstacles, boids=None):
+        acc = np.array([0, 0], dtype=float)
+        mag = 0
+        
+        # Priority 1: Avoid obstacles
+        mag = accumulate(acc, self.avoidObstacles(obstacles))
+        
+        # Priority 2: FLEE from predators (high priority!)
+        if mag < 1 and boids is not None:
+            mag = accumulate(acc, self.flee(boids))
+        
+        # Priority 3: Maintain distance from flockmates
+        if mag < 1:
+            mag = accumulate(acc, self.keepDistance())
+        
+            
+        # Priority 4: Cohesion with flockmates
+        if mag < 1:
+            mag = accumulate(acc, self.matchHeading())   
+        
+        # Priority 5: Align with flockmates     
+        if mag < 1:
+            mag = accumulate(acc, self.steerToCenter())
+            
+        # Priority 6: Goal seeking
+        if mag < 1 and self.goal is not None:
+            mag = accumulate(acc, self.gotoGoal())
+        
+        # Priority 7: Maintain cruising speed    
+        if mag < 1:
+            mag = accumulate(acc, self.maintainSpeed())
+        
+        acc *= behaviours[self.species]["max-acceleration"][4] * self.mass
+        return acc
 
 class Penguin(Boid):
     def __init__(self, pos):
         # print(f"Creating penguin at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Penguin", pos=pos)
         self.mass = 0.8
+        
+        self.predators = ["Fox"]
         
     def handleTerrainType(self, terrainType, grad=None): 
         if terrainType == "Water":
@@ -894,6 +1016,111 @@ class Penguin(Boid):
             return False
         
         return False
+
+    def flee(self, boids):
+        """Improved flee from nearby predators"""
+        if not boids:
+            return np.array([0, 0], dtype=float)
+        
+        flee_vector = np.array([0, 0], dtype=float)
+        closest_threat_dist = float('inf')
+        
+        for boid in boids:
+            if boid.species not in self.predators or boid.isDead:
+                continue
+            
+            # Vector from predator to self
+            r = self.position - boid.position
+            dist_sq = ssq(r)
+            
+            # Define detection ranges based on urgency
+            panic_range_sq = 50**2      # Immediate danger
+            alert_range_sq = 150**2     # General awareness
+            
+            # Check if predator is visible (within view angle)
+            if dist_sq > 0.01:  # Avoid division by zero
+                # Use velocity if moving, otherwise check all directions
+                if ssq(self.velocity) > 0.1:
+                    view_direction = unit(self.velocity)
+                else:
+                    # If stationary, can see in all directions
+                    view_direction = unit(r)
+                
+                angle_cos = dot(view_direction, unit(r))
+                view_angle_cos = np.cos(np.deg2rad(behaviours[self.species]["view-angle"][4]))
+                
+                # If behind us but close, still flee (peripheral awareness)
+                if angle_cos < view_angle_cos and dist_sq > panic_range_sq:
+                    continue  # Predator is behind and not too close
+            
+            # If within detection range, flee
+            if dist_sq < alert_range_sq:
+                # Scale urgency based on distance
+                if dist_sq < panic_range_sq:
+                    urgency = 1.0  # Maximum urgency
+                else:
+                    # Gradual urgency increase as predator gets closer
+                    urgency = 1.0 - (dist_sq - panic_range_sq) / (alert_range_sq - panic_range_sq)
+                    urgency = max(0.3, urgency)  # Minimum 30% urgency
+                
+                # Consider predator's heading
+                predator_velocity_towards = -dot(unit(boid.velocity), unit(r))
+                if predator_velocity_towards > 0.3:  # Predator moving towards us
+                    urgency *= 1.5  # Increase urgency
+                
+                # Desired flee velocity
+                if dist_sq < panic_range_sq:
+                    # Panic - flee at max speed
+                    desired_velocity = unit(r) * behaviours[self.species]["max-velocity"][4]
+                else:
+                    # Alert - flee at scaled speed
+                    desired_velocity = unit(r) * behaviours[self.species]["cruising-speed"][4] * urgency
+                
+                # Calculate flee force
+                flee_force = (desired_velocity - self.velocity) / (behaviours[self.species]["max-velocity"][4] / 2)
+                flee_force *= urgency
+                
+                flee_vector += flee_force
+                closest_threat_dist = min(closest_threat_dist, dist_sq)
+        
+        if ssq(flee_vector) > 1:
+            return unit(flee_vector)
+        return flee_vector
+        
+    def navigator(self, obstacles, boids=None):
+        acc = np.array([0, 0], dtype=float)
+        mag = 0
+        
+        # Priority 1: Avoid obstacles
+        mag = accumulate(acc, self.avoidObstacles(obstacles))
+        
+        # Priority 2: FLEE from predators (high priority!)
+        if mag < 1 and boids is not None:
+            mag = accumulate(acc, self.flee(boids))
+        
+        # Priority 3: Maintain distance from flockmates
+        if mag < 1:
+            mag = accumulate(acc, self.keepDistance())
+        
+            
+        # Priority 4: Cohesion with flockmates
+        if mag < 1:
+            mag = accumulate(acc, self.matchHeading())   
+        
+        # Priority 5: Align with flockmates     
+        if mag < 1:
+            mag = accumulate(acc, self.steerToCenter())
+            
+        # Priority 6: Goal seeking
+        if mag < 1 and self.goal is not None:
+            mag = accumulate(acc, self.gotoGoal())
+        
+        # Priority 7: Maintain cruising speed    
+        if mag < 1:
+            mag = accumulate(acc, self.maintainSpeed())
+        
+        acc *= behaviours[self.species]["max-acceleration"][4] * self.mass
+        return acc
 
 class Fish(Boid):
     def __init__(self, pos):
@@ -974,24 +1201,18 @@ class Fox(Boid):
         # print(f"Creating fox at position: ({pos[0]},{pos[1]})")
         super().__init__(species="Fox", pos=pos)
         self.mass = 1.2
+        self.prey = ["Sheep", "Penguin"]
+        self.targetPrey = None
         
     def handleTerrainType(self, terrainType, grad=None):
         if terrainType == "Water":
             slope = magnitude(grad)
-            
-            if slope > 0.01:  # If there's noticeable slope (flowing water)
-                # Push along gradient (stream/current)
-                streamStrength = 20
-                streamForce = streamStrength * unit(grad)
-                self.netForce += streamForce
-                return True
-            else:  # Flat water (pond/lake)
-                # Apply resistance
-                resistance_strength = 8
-                resistance_force = -resistance_strength * self.velocity
-                self.netForce += resistance_force
-                self.accelerationModifier = 0.3
-                return False
+            # Apply resistance
+            resistance_strength = 8
+            resistance_force = -resistance_strength * self.velocity
+            self.netForce += resistance_force
+            self.accelerationModifier = 0.3
+            return False
             
         if terrainType == "Snow":
             # print(f"Applying wading force.")
@@ -1018,6 +1239,119 @@ class Fox(Boid):
         
         return False
 
+    def hunt(self, boids):
+        """Improved hunting behaviour with target persistence"""
+        if self.hunger < 30:
+            self.targetPrey = None
+            return np.array([0, 0], dtype=float)
+        
+        # If we already have a target, check if it's still valid
+        if self.targetPrey is not None:
+            if self.targetPrey.isDead:
+                self.targetPrey = None
+            else:
+                r = self.targetPrey.position - self.position
+                dist_sq = ssq(r)
+                # Keep target if within extended range (don't switch easily)
+                
+                if dist_sq > 200**2:  # Lost the target
+                    self.targetPrey = None
+        
+        # Find a new target if we don't have one
+        if self.targetPrey is None:
+            closest_prey = None
+            closest_dist_sq = float('inf')
+            
+            for boid in boids:
+                if boid.species not in self.prey or boid.isDead or boid is self:
+                    continue
+                
+                r = boid.position - self.position
+                dist_sq = ssq(r)
+                
+                # Check if within detection range and visible
+                if dist_sq <= 200**2:
+                    # Check view angle
+                    if dist_sq > 0.01:  # Avoid division by zero
+                        angle_cos = dot(unit(self.velocity), unit(r))
+                        if angle_cos < np.cos(np.deg2rad(behaviours[self.species]["view-angle"][4])):
+                            continue  # Not visible
+                    
+                    # Pick the closest prey
+                    if dist_sq < closest_dist_sq:
+                        closest_prey = boid
+                        closest_dist_sq = dist_sq
+            
+            self.targetPrey = closest_prey
+        
+        # If we have a target, pursue it
+        if self.targetPrey is not None:
+            r = self.targetPrey.position - self.position
+            dist_sq = ssq(r)
+            catch_radius_sq = (behaviours[self.species]["size"]/2 + behaviours[self.targetPrey.species]["size"]/2)**2
+            
+            # Check if we caught the prey
+            if dist_sq < catch_radius_sq:
+                self.targetPrey.kill()
+                self.hunger = 0
+                self.targetPrey = None
+                return np.array([0, 0], dtype=float)
+            
+            # Calculate pursuit with distance-based prediction
+            dt = 20
+            target_pos = self.targetPrey.position + self.targetPrey.velocity * dt
+            
+            desiredVelocity = target_pos - self.position
+            
+            if ssq(desiredVelocity) > behaviours[self.species]["max-velocity"][4]**2:
+                desiredVelocity = unit(desiredVelocity) * behaviours[self.species]["max-velocity"][4]
+            
+            change = (desiredVelocity - self.velocity) / (behaviours[self.species]["max-velocity"][4] / 2)
+            
+            if ssq(change) > 1:
+                return unit(change)
+            return change
+        
+        return np.array([0, 0], dtype=float)
+        
+    
+    def navigator(self, obstacles, boids=None):
+        acc = np.array([0, 0], dtype=float)
+        mag = 0
+        
+        #Priority 1: Avoid obstacles
+        mag = accumulate(acc, self.avoidObstacles(obstacles))
+        
+        # Priority 5: Hunting prey
+        if mag < 1 and boids is not None:
+            hunt_acc = self.hunt(boids)
+            if hunt_acc is not None:
+                mag = accumulate(acc, hunt_acc)
+        
+        # priority 2: Maintain distance from flockmates
+        if mag < 1:
+            mag = accumulate(acc, self.keepDistance())
+        
+        # Priority 3: Cohesion with flockmates
+        if mag < 1:
+            mag = accumulate(acc, self.matchHeading())   
+        
+        # Priority 4: Align with flockmates     
+        if mag < 1:
+            mag = accumulate(acc, self.steerToCenter())
+            
+        
+        # Priority 6: Goal seeking
+        if mag < 1 and self.goal is not None:
+            mag = accumulate(acc, self.gotoGoal())
+        
+        # Priority 7: Maintain cruising speed    
+        if mag < 1:
+            mag = accumulate(acc, self.maintainSpeed())
+             
+        
+        acc *= behaviours[self.species]["max-acceleration"][4]*self.mass  # Scale by max acceleration * mass
+        return acc
         
 class Flamingo(Boid):
     def __init__(self, pos):

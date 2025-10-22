@@ -5,6 +5,7 @@ from widgets.animalTab import SpeciesTab
 from widgets.terrainEditorTab import TerrainTab
 from widgets.behaviourTab import BehaviourTab
 import boid
+from widgets.borderHandler import BorderHandler
 
 class Controller(tk.Frame):
     def __init__(self, parent):
@@ -53,8 +54,13 @@ class Controller(tk.Frame):
         self.terrainTab = TerrainTab(tab2, self.unselect_animals)
         
         #Tab 3
+        #Section a : Parameter Tweaking
         self.behaviourTab = BehaviourTab(tab3)
         self.behaviourTab.pack(fill="both", expand=True)
+        
+        #Section b : Border Handling
+        self.borderHandler = BorderHandler(tab3)
+        self.borderHandler.pack(fill="x", padx=8, pady=(20, 20))
         
         self.after(100, lambda: self.focus_set())
         
@@ -65,7 +71,7 @@ class Controller(tk.Frame):
         return self.terrainTab.brush_shape_var.get()
     
     def getBorderMode(self):
-        return self.speciesTab.borderVar.get()
+        return self.borderHandler.borderVar.get()
     
     def get_selected_terrain(self):
         return self.terrainTab.selected_terrain
