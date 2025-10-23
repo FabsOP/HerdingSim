@@ -228,6 +228,14 @@ class TerrainLoader(tk.Tk):
                     with open(flatTerrainPath, 'wb') as f:
                         pkl.dump(flatTerrain, f)
         
+        #if flat.terrain does not exist, create it
+        flatTerrainPath = os.path.join(savesDir, "flat.terrain")
+        if not os.path.exists(flatTerrainPath):
+            flatTerrain = Terrain(512, 512, invert=False)
+            flatTerrain.load(None, "Grass", levels=15)
+            with open(flatTerrainPath, 'wb') as f:
+                pkl.dump(flatTerrain, f)        
+        
         # Load all terrains from saves directory
         terrains = []
         
@@ -268,7 +276,7 @@ class TerrainLoader(tk.Tk):
             }]
         
         self.savedTerrains = terrains
-
+        
     def update_biome_previews(self):
         """Update all biome preview images"""
         # Update main preview (current biome)
