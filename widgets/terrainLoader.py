@@ -187,6 +187,8 @@ class TerrainLoader(tk.Tk):
             padx=30, pady=50, relief="raised", borderwidth=3
         )
         self.startSimBtn.pack()
+        
+        self.iconbitmap(resource_path("icons/sheep.ico"))
 
     def get_preview_image(self, terrain_idx, biome, size=128):
         idx = terrain_idx % len(self.savedTerrains)

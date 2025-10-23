@@ -59,7 +59,7 @@ default_behaviours = {
         "obstacle-range": [32,100,1,int,32], #[size, inf,_,_]
         "flockmate-range": [40,100,1,int,40], #[comfort, inf]
         "view-angle": [1, 180,1,int,110],
-        "drag-factor": [0, 55, 1, int, 25],
+        "drag-factor": [0, 55, 1, int, 20],
     },
     "Flamingo": {
         "size": 12,

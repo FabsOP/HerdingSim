@@ -66,6 +66,7 @@ class MainMenu(tk.Tk):
         # Bind the close event to the destroy method
         self.protocol("WM_DELETE_WINDOW", sys.exit)
         self.center_window()
+        self.iconbitmap(resource_path("icons/sheep.ico"))
         self.mainloop()
 
     def center_window(self):

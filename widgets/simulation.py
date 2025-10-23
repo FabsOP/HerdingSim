@@ -4,6 +4,11 @@ from widgets.controller import Controller
 from widgets.media_controller import MediaController
 from widgets.sim_canvas import SimCanvas
 
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from path_utils import resource_path
+
 #### SIMULATION CLASS ####################
 windowSizeMap = {"small": "680x490", "large": "810x615"}
 canvasMultiplier = {"small": 1.5, "large": 2}
@@ -25,6 +30,7 @@ class Simulation(tk.Tk):
         self.media = MediaController(self)
         self.canvas = SimCanvas(self, terrain, self.controller, self.media)
         
+        self.iconbitmap(resource_path("icons/sheep.ico"))
         
         # Only set focus for entry fields, not buttons
         self.bind_all("<Button-1>", lambda e: e.widget.focus_set()
