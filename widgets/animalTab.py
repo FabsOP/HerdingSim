@@ -21,7 +21,7 @@ class SpeciesTab(tk.Frame):
             (resource_path("icons/penguin.png"), "Penguin", "Great swimmers"),
             (resource_path("icons/flamingo.png"), "Flamingo", "Magestically pink"),
             (resource_path("icons/elephant.png"), "Elephant", "Large, friendly herbivores"),
-            (resource_path("icons/fox.png"), "Fox", "Solo hunters. Prey: Penguins & Sheep"),
+            (resource_path("icons/fox.png"), "Fox", "Lone creatures. Prey: Penguins & Sheep"),
             (resource_path("icons/swallow.png"), "Swallow", "Can fly anywhere"),]
         
         # a) Selection Section

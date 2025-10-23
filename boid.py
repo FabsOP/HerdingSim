@@ -110,13 +110,13 @@ lastModified = None
 
 #tooltips for params
 tooltips = {
-    "max-acceleration": "Maximum acceleration the boid can achieve.",
-    "max-velocity": "Maximum velocity the boid can achieve.",
-    "herd-size": "Maximum number of boids allowed in a single flock.",
-    "cruising-speed": "Preferred navigation speed of the boid.",
+    "max-acceleration": "Maximum acceleration species can achieve.",
+    "max-velocity": "Maximum velocity species can achieve.",
+    "herd-size": "Maximum number of animals allowed in a single flock.",
+    "cruising-speed": "Preferred navigation speed of the species.",
     "comfort-zone": "Distance an animal maintains from others to feel comfortable.",
     "danger-zone": "Distance within which an animal is too close for comfort.",
-    "obstacle-range": "Distance at which an animal starts to avoid obstacles.",
+    "obstacle-range": "Distance at which species starts to avoid obstacles.",
     "flockmate-range": "Distance within which other animals can join the flock.",
     "view-angle": "Field of view angle for perceiving other animals.",
     "drag-factor": "Factor determining resistance to movement across terrain contours.",
@@ -1298,7 +1298,7 @@ class Fox(Boid):
                 return np.array([0, 0], dtype=float)
             
             # Calculate pursuit with distance-based prediction
-            dt = 20
+            dt = 8
             target_pos = self.targetPrey.position + self.targetPrey.velocity * dt
             
             desiredVelocity = target_pos - self.position

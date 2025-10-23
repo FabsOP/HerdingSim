@@ -451,6 +451,11 @@ class TerrainLoader(tk.Tk):
                 "Error",
                 f"Failed to load heightmap:\n{str(e)}"
             )
+            
+        #remove temp heightmap if it exists
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.remove(temp_path)
+        
 
     def delete_heightmap(self):
         """Delete the currently selected heightmap"""

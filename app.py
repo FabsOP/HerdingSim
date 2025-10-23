@@ -50,7 +50,7 @@ songIdx = 0
 audio_files = [
     ("audio/music/answers-from-angels-333760.mp3", 0.02),
     ("audio/music/lost-in-summer-232501.mp3", 0.04),
-    ("audio/music/infinityBetweenUs.mp3", 0.1),
+    ("audio/music/ambient-background-music-331731.mp3", 0.1),
     ("audio/music/medieval-ambient-236809.mp3", 0.1),
     ("audio/music/chill-lofi-316579.mp3", 0.1),
     ("audio/music/ethereal-nature.mp3", 0.1),
