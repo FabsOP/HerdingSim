@@ -1,5 +1,9 @@
 import tkinter as tk
 import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from path_utils import resource_path
 
 class MainMenu(tk.Tk):
     def __init__(self):
@@ -12,7 +16,7 @@ class MainMenu(tk.Tk):
         self.resizable(0, 0)
 
         # Logo
-        logo = tk.PhotoImage(file="./icons/logo.png")
+        logo = tk.PhotoImage(file=resource_path("icons/logo.png"))
         logoLabel = tk.Label(self, image=logo, background="#F5FBEF")
         logoLabel.image = logo  # Keep reference
         logoLabel.pack(pady=(18, 0))  # Add some top padding

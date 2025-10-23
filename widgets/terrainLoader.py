@@ -9,6 +9,8 @@ import webbrowser
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from terrain import Terrain
 
+from path_utils import resource_path, user_data_path
+
 class TerrainLoader(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -25,8 +27,8 @@ class TerrainLoader(tk.Tk):
         self.biomeOptions = ["Grass", "Sand", "Ice", "Rock", "Water", "Snow"]
         self.selected_biome_idx = 0
         self.selected_biome = self.biomeOptions[self.selected_biome_idx]
-        self.leftArrowImg = ImageTk.PhotoImage(Image.open("icons/left-arrow.png").resize((30, 30)))
-        self.rightArrowImg = ImageTk.PhotoImage(Image.open("icons/right-arrow.png").resize((30, 30)))
+        self.leftArrowImg = ImageTk.PhotoImage(Image.open(resource_path("icons/left-arrow.png")).resize((30, 30)))
+        self.rightArrowImg = ImageTk.PhotoImage(Image.open(resource_path("icons/right-arrow.png")).resize((30, 30)))
 
         self.savedTerrains = []
         self.loadSaves()
@@ -192,33 +194,77 @@ class TerrainLoader(tk.Tk):
         return img.resize((size, size))
 
     def loadSaves(self):
-        savesDir = "./saves"
+        savesDir = user_data_path("saves")
         if not os.path.exists(savesDir):
             os.makedirs(savesDir)
-
-        if "flat.terrain" not in os.listdir(savesDir):
+        
+        # Check if this is first run (saves folder is empty)
+        is_first_run = len([f for f in os.listdir(savesDir) if f.endswith('.terrain')]) == 0
+        
+        if is_first_run:
+            print("First run detected - copying default terrains...")
+            # Copy default terrains from bundled resources
+            default_terrains_dir = resource_path("default_terrains")
+            
+            if os.path.exists(default_terrains_dir):
+                for file in os.listdir(default_terrains_dir):
+                    if file.endswith('.terrain'):
+                        src = os.path.join(default_terrains_dir, file)
+                        dst = os.path.join(savesDir, file)
+                        try:
+                            import shutil
+                            shutil.copy2(src, dst)
+                            print(f"  ✓ Copied {file}")
+                        except Exception as e:
+                            print(f"  ✗ Failed to copy {file}: {e}")
+            else:
+                # Fallback: Create default flat terrain
+                flatTerrainPath = os.path.join(savesDir, "flat.terrain")
+                if not os.path.exists(flatTerrainPath):
+                    flatTerrain = Terrain(512, 512, invert=False)
+                    flatTerrain.load(None, "Grass", levels=15)
+                    with open(flatTerrainPath, 'wb') as f:
+                        pkl.dump(flatTerrain, f)
+        
+        # Load all terrains from saves directory
+        terrains = []
+        
+        for file in sorted(os.listdir(savesDir)):
+            if file.endswith(".terrain"):
+                try:
+                    with open(os.path.join(savesDir, file), 'rb') as f:
+                        terrain = pkl.load(f)
+                        display_name = file.replace(".terrain", "")
+                        
+                        # Put flat terrain first if it exists
+                        terrain_entry = {
+                            "name": display_name[:18] + "..." if len(display_name) > 18 else display_name,
+                            "full_name": display_name,
+                            "terrain": terrain
+                        }
+                        
+                        if file == "flat.terrain":
+                            terrain_entry["name"] = "Flat Terrain"
+                            terrains.insert(0, terrain_entry)
+                        else:
+                            terrains.append(terrain_entry)
+                            
+                except Exception as e:
+                    print(f"Failed to load {file}: {e}")
+        
+        # If no terrains loaded, create default flat
+        if not terrains:
             flatTerrain = Terrain(512, 512, invert=False)
             flatTerrain.load(None, "Grass", levels=15)
-            with open(os.path.join(savesDir, "flat.terrain"), 'wb') as f:
+            flatTerrainPath = os.path.join(savesDir, "flat.terrain")
+            with open(flatTerrainPath, 'wb') as f:
                 pkl.dump(flatTerrain, f)
-
-        terrains = [{
-            "name": "Flat Terrain",
-            "terrain": pkl.load(open(os.path.join(savesDir, "flat.terrain"), 'rb'))
-        }]
-
-        for file in os.listdir(savesDir):
-            if file.endswith(".terrain") and file != "flat.terrain":
-                with open(os.path.join(savesDir, file), 'rb') as f:
-                    terrain = pkl.load(f)
-                    display_name = file.replace(".terrain", "")
-                    if len(display_name) > 12:
-                        display_name = display_name[:12] + "..."
-                    terrains.append({
-                        "name": display_name,
-                        "full_name": file.replace(".terrain", ""),
-                        "terrain": terrain
-                    })
+            terrains = [{
+                "name": "Flat Terrain",
+                "full_name": "flat",
+                "terrain": flatTerrain
+            }]
+        
         self.savedTerrains = terrains
 
     def update_biome_previews(self):
@@ -365,7 +411,7 @@ class TerrainLoader(tk.Tk):
             new_terrain.load(heightmap_path, "Grass", levels=15)
             
             # Save terrain to file
-            save_path = os.path.join("./saves", f"{terrain_name}.terrain")
+            save_path = os.path.join(user_data_path("saves"), f"{terrain_name}.terrain")
             with open(save_path, 'wb') as f:
                 pkl.dump(new_terrain, f)
             
@@ -425,7 +471,7 @@ class TerrainLoader(tk.Tk):
         
         try:
             # Remove save file
-            save_path = os.path.join("./saves", f"{terrain_name}.terrain")
+            save_path = os.path.join(user_data_path("saves"), f"{terrain_name}.terrain")
             if os.path.exists(save_path):
                 os.remove(save_path)
             

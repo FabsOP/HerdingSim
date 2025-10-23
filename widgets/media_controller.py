@@ -1,6 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
 
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from path_utils import resource_path
+
 
 class MediaController(tk.Frame):
     def __init__(self, parent):
@@ -15,8 +20,8 @@ class MediaController(tk.Frame):
         self.rewindUsable = True
         
         # Load your icons
-        self.pauseIcon = tk.PhotoImage(file="icons/pause.png")
-        self.playIcon = tk.PhotoImage(file="icons/play.png")
+        self.pauseIcon = tk.PhotoImage(file=resource_path("icons/pause.png"))
+        self.playIcon = tk.PhotoImage(file=resource_path("icons/play.png"))
 
         # Configure grid to center buttons
         self.columnconfigure(0, weight=1)

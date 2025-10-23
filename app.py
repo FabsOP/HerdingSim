@@ -11,6 +11,11 @@ import random
 
 import time
 from terrain import Terrain
+import tkinter as tk
+
+# Deployment helper functions
+from path_utils import resource_path, user_data_path
+import os
 
 #### HELPER FUNCTIONS ###################
 def generateTerrain(terrainSize, terrainType, heightMapPath=None, levels=15, invert=True):
@@ -42,20 +47,31 @@ def scheduleNextSong(sim):
     
 #### SIMULATION MUSIC ###################################################################################
 songIdx = 0
-playlist = [("audio/music/answers-from-angels-333760.mp3",0.02, MP3("audio/music/answers-from-angels-333760.mp3").info.length),
-            ("audio/music/lost-in-summer-232501.mp3",0.04, MP3("audio/music/lost-in-summer-232501.mp3").info.length),
-            ("audio/music/infinityBetweenUs.mp3",0.1, MP3("audio/music/infinityBetweenUs.mp3").info.length),
-            ("audio\music\medieval-ambient-236809.mp3", 0.1, MP3("audio/music/medieval-ambient-236809.mp3").info.length),
-            ("audio\music\chill-lofi-316579.mp3", 0.1, MP3("audio\music\chill-lofi-316579.mp3").info.length),
-            ("audio\music\ethereal-nature.mp3", 0.1, MP3("audio\music\ethereal-nature.mp3").info.length),
-            ("audio/music/flash-news.mp3", 0.1, MP3("audio/music/flash-news.mp3").info.length),
-            ("audio\music\mystical-world.mp3", 0.1, MP3("audio\music\mystical-world.mp3").info.length)]  #[(song path, volume, duration(s)),..]
+audio_files = [
+    ("audio/music/answers-from-angels-333760.mp3", 0.02),
+    ("audio/music/lost-in-summer-232501.mp3", 0.04),
+    ("audio/music/infinityBetweenUs.mp3", 0.1),
+    ("audio/music/medieval-ambient-236809.mp3", 0.1),
+    ("audio/music/chill-lofi-316579.mp3", 0.1),
+    ("audio/music/ethereal-nature.mp3", 0.1),
+    ("audio/music/flash-news.mp3", 0.1),
+    ("audio/music/mystical-world.mp3", 0.1)
+]
+
+playlist = []
+for audio_file, volume in audio_files:
+    path = resource_path(audio_file)  # Wrap path with resource_path()
+    duration = MP3(path).info.length
+    playlist.append((path, volume, duration))
+    
 random.shuffle(playlist)
 
 pygame.mixer.init()
 
 ### MAIN CODE ######################################################
 if __name__ == "__main__":
+    
+    
     m = MainMenu()
     t = TerrainLoader()
     
@@ -66,4 +82,5 @@ if __name__ == "__main__":
     s = Simulation(terrainSize, terrain)
     scheduleNextSong(s)
     s.canvas.update(60, ti=time.time())
+        
     s.mainloop()

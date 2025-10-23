@@ -2,6 +2,11 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from tktooltip import ToolTip
 
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from path_utils import resource_path
+
 
 class TerrainTab(tk.Frame):
     def __init__(self, parent, f_unselect_animals):
@@ -27,10 +32,10 @@ class TerrainTab(tk.Frame):
         
         #add radio buttons with icons to the right of the terrain buttons for brush shape selection
         self.brush_shape_var = tk.StringVar(value="Circle")
-        circle_image = Image.open("icons/circle.png")
+        circle_image = Image.open(resource_path("icons/circle.png"))
         circle_image = circle_image.resize((16, 16))
-        
-        square_image = Image.open("icons/square.png")
+
+        square_image = Image.open(resource_path("icons/square.png"))
         square_image = square_image.resize((16, 16))
         circle_photo = ImageTk.PhotoImage(circle_image)
         square_photo = ImageTk.PhotoImage(square_image)
@@ -40,16 +45,16 @@ class TerrainTab(tk.Frame):
         
         ## generate btn grid of icons
         btnIcons = [
-                    ("icons/grass.png", "Grass", "A lush green terrain, perfect for grazing animals."),
-                    ("icons/sand.png", "Sand", "A dry, sandy terrain, suitable for desert animals."),
-                    ("icons/rock.png", "Rock", "A rocky terrain, difficult to traverse"),
-                    ("icons/ice.png", "Ice", "Careful, it's slippery"),
-                    ("icons/snow.png", "Snow", "Snowy terrain, slows down movement"),
-                    ("icons/water.png", "Water" ,"Slows movement for non-aquatic animals. Semi-aquatic creatures thrive."),
-                    ("icons/tree.png", "Tree", "Provides shade and shelter."),
-                    ("icons/bush.png", "Bush", "Dense foliage, ideal for hiding from predators."),
-                    ("icons/boulder.png", "Boulder", "A large rock that can block paths or provide cover."),
-                    ("icons/eraser.png", "Eraser", "Removes animals or obstacles from the environment."),]
+            (resource_path("icons/grass.png"), "Grass", "A lush green terrain, perfect for grazing animals."),
+            (resource_path("icons/sand.png"), "Sand", "A dry, sandy terrain, suitable for desert animals."),
+            (resource_path("icons/rock.png"), "Rock", "A rocky terrain, difficult to traverse"),
+            (resource_path("icons/ice.png"), "Ice", "Careful, it's slippery"),
+            (resource_path("icons/snow.png"), "Snow", "Snowy terrain, slows down movement"),
+            (resource_path("icons/water.png"), "Water" ,"Slows movement for non-aquatic animals. Semi-aquatic creatures thrive."),
+            (resource_path("icons/tree.png"), "Tree", "Provides shade and shelter."),
+            (resource_path("icons/bush.png"), "Bush", "Dense foliage, ideal for hiding from predators."),
+            (resource_path("icons/boulder.png"), "Boulder", "A large rock that can block paths or provide cover."),
+            (resource_path("icons/eraser.png"), "Eraser", "Removes animals or obstacles from the environment."),]
         
         for i, icon in enumerate(btnIcons):
             image = Image.open(icon[0])

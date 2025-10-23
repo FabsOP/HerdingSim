@@ -13,6 +13,12 @@ from types import SimpleNamespace
 import random
 import functools
 
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from path_utils import resource_path
+
+
 paintWindowWidth = 0
 paintWindowStep = 10
 
@@ -27,44 +33,41 @@ obstacles = {
         "hitbox-radius": 8,
         "hitbox-offset": [0, 4],
         "image-terrain-map": {
-            "Grass": "icons/trees/Grass.png",
-            "Sand": "icons/trees/Sand.png",
-            "Ice": "icons/trees/Ice.png",
-            "Water": "icons/trees/Water.png",
-            "Snow": "icons/trees/Snow.png",
-            "Rock": "icons/trees/Rock.png",
-            }
+            "Grass": resource_path("icons/trees/Grass.png"),
+            "Sand": resource_path("icons/trees/Sand.png"),
+            "Ice": resource_path("icons/trees/Ice.png"),
+            "Water": resource_path("icons/trees/Water.png"),
+            "Snow": resource_path("icons/trees/Snow.png"),
+            "Rock": resource_path("icons/trees/Rock.png"),
         }
-    , "Boulder": {
+    },
+    "Boulder": {
         "size": 32,
         "hitbox-radius": 16,
         "hitbox-offset": [0, 0],
         "image-terrain-map": {
-            "Grass": "icons/boulders/Grass.png",
-            "Sand": "icons/boulders/Sand.png",
-            "Ice": "icons/boulders/Ice.png",
-            "Water": "icons/boulders/Water.png",
-            "Snow": "icons/boulders/Snow.png",
-            "Rock": "icons/boulders/Rock.png",
-            }
-        
+            "Grass": resource_path("icons/boulders/Grass.png"),
+            "Sand": resource_path("icons/boulders/Sand.png"),
+            "Ice": resource_path("icons/boulders/Ice.png"),
+            "Water": resource_path("icons/boulders/Water.png"),
+            "Snow": resource_path("icons/boulders/Snow.png"),
+            "Rock": resource_path("icons/boulders/Rock.png"),
         }
-    , "Bush": {
+    },
+    "Bush": {
         "size": 32,
         "hitbox-radius": 8,
         "hitbox-offset": [0, 0],
         "image-terrain-map": {
-            "Grass": "icons/bushes/Grass.png",
-            "Sand": "icons/bushes/Sand.png",
-            "Ice": "icons/bushes/Ice.png",
-            "Water": "icons/bushes/Water.png",
-            "Snow": "icons/bushes/Snow.png",
-            "Rock": "icons/bushes/Rock.png",
-            } 
+            "Grass": resource_path("icons/bushes/Grass.png"),
+            "Sand": resource_path("icons/bushes/Sand.png"),
+            "Ice": resource_path("icons/bushes/Ice.png"),
+            "Water": resource_path("icons/bushes/Water.png"),
+            "Snow": resource_path("icons/bushes/Snow.png"),
+            "Rock": resource_path("icons/bushes/Rock.png"),
         }
-    
+    }
 }
-
 
 #Helper functions
 
@@ -100,23 +103,27 @@ class SimCanvas(tk.Canvas):
         self.mouseOnCanvas = False
         
         self.waypoints = {species: None for species in behaviours.keys()}
-        self.waypointImages = {"Sheep": ImageTk.PhotoImage(Image.open(f"icons/sheep_waypoint.png").resize((30, 30))),
-                               "Penguin": ImageTk.PhotoImage(Image.open(f"icons/penguin_waypoint.png").resize((30, 30))),
-                               "Fox": ImageTk.PhotoImage(Image.open(f"icons/fox_wp.png").resize((30, 30))),
-                               "Swallow": ImageTk.PhotoImage(Image.open(f"icons/swallow_waypoint.png").resize((30,30))),
-                               "Elephant": ImageTk.PhotoImage(Image.open(f"icons/elephant_waypoint.png").resize((30, 30))),
-                               "Flamingo": ImageTk.PhotoImage(Image.open(f"icons/flamingo_waypoint.png").resize((30, 30)))}
+        self.waypointImages = {
+            "Sheep": ImageTk.PhotoImage(Image.open(resource_path("icons/sheep_waypoint.png")).resize((30, 30))),
+            "Penguin": ImageTk.PhotoImage(Image.open(resource_path("icons/penguin_waypoint.png")).resize((30, 30))),
+            "Fox": ImageTk.PhotoImage(Image.open(resource_path("icons/fox_wp.png")).resize((30, 30))),
+            "Swallow": ImageTk.PhotoImage(Image.open(resource_path("icons/swallow_waypoint.png")).resize((30, 30))),
+            "Elephant": ImageTk.PhotoImage(Image.open(resource_path("icons/elephant_waypoint.png")).resize((30, 30))),
+            "Flamingo": ImageTk.PhotoImage(Image.open(resource_path("icons/flamingo_waypoint.png")).resize((30, 30)))
+        }
         
-        self.boidImages = {"Sheep": ImageTk.PhotoImage(Image.open("icons/sheep_land.png").resize((behaviours["Sheep"]["size"], behaviours["Sheep"]["size"]))),
-                           "Penguin": ImageTk.PhotoImage(Image.open("icons/penguin_land.png").resize((behaviours["Penguin"]["size"], behaviours["Penguin"]["size"]))),
-                           "Elephant": ImageTk.PhotoImage(Image.open("icons/elephant_land.png").resize((behaviours["Elephant"]["size"], behaviours["Elephant"]["size"]))),
-                           "Fox": ImageTk.PhotoImage(Image.open("icons/fox_land.png").resize((behaviours["Fox"]["size"], behaviours["Fox"]["size"]))),
-                           "Swallow": ImageTk.PhotoImage(Image.open("icons/swallow_land.png").resize((behaviours["Swallow"]["size"], behaviours["Swallow"]["size"]))),
-                           "Flamingo": ImageTk.PhotoImage(Image.open("icons/flamingo_land.png").resize((behaviours["Flamingo"]["size"], behaviours["Flamingo"]["size"])))}
+        self.boidImages = {
+            "Sheep": ImageTk.PhotoImage(Image.open(resource_path("icons/sheep_land.png")).resize((behaviours["Sheep"]["size"], behaviours["Sheep"]["size"]))),
+            "Penguin": ImageTk.PhotoImage(Image.open(resource_path("icons/penguin_land.png")).resize((behaviours["Penguin"]["size"], behaviours["Penguin"]["size"]))),
+            "Elephant": ImageTk.PhotoImage(Image.open(resource_path("icons/elephant_land.png")).resize((behaviours["Elephant"]["size"], behaviours["Elephant"]["size"]))),
+            "Fox": ImageTk.PhotoImage(Image.open(resource_path("icons/fox_land.png")).resize((behaviours["Fox"]["size"], behaviours["Fox"]["size"]))),
+            "Swallow": ImageTk.PhotoImage(Image.open(resource_path("icons/swallow_land.png")).resize((behaviours["Swallow"]["size"], behaviours["Swallow"]["size"]))),
+            "Flamingo": ImageTk.PhotoImage(Image.open(resource_path("icons/flamingo_land.png")).resize((behaviours["Flamingo"]["size"], behaviours["Flamingo"]["size"])))
+        }
         
         
         self.setBgImage(terrain.contourImg)
-        self.paintBucketIcon = ImageTk.PhotoImage(Image.open("icons/paint-bucket.png").resize((15, 15)))
+        self.paintBucketIcon = ImageTk.PhotoImage(Image.open(resource_path("icons/paint-bucket.png")).resize((15, 15)))
         
         
         ### SIMULATION FRAMES 

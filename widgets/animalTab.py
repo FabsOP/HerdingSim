@@ -3,6 +3,11 @@ import tkinter as tk
 from PIL import Image, ImageTk
 from tktooltip import ToolTip
 
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from path_utils import resource_path
+
 class SpeciesTab(tk.Frame):
     def __init__(self, parent, f_unselect_terrains):
         super().__init__(parent)
@@ -12,12 +17,12 @@ class SpeciesTab(tk.Frame):
         self.f_unselect_terrains = f_unselect_terrains
 
         self.images = []
-        btnIcons = [("icons/sheep.png", "Sheep", "Great climbers"),
-                    ("icons/penguin.png", "Penguin", "Great swimmers"),
-                    ("icons/flamingo.png", "Flamingo", "Magestically pink"),
-                    ("icons/elephant.png", "Elephant", "Large, friendly herbivores"),
-                    ("icons/fox.png", "Fox", "Solo hunters. Prey: Penguins & Sheep"),
-                    ("icons/swallow.png", "Swallow", "Can fly anywhere"),]
+        btnIcons = [(resource_path("icons/sheep.png"), "Sheep", "Great climbers"),
+            (resource_path("icons/penguin.png"), "Penguin", "Great swimmers"),
+            (resource_path("icons/flamingo.png"), "Flamingo", "Magestically pink"),
+            (resource_path("icons/elephant.png"), "Elephant", "Large, friendly herbivores"),
+            (resource_path("icons/fox.png"), "Fox", "Solo hunters. Prey: Penguins & Sheep"),
+            (resource_path("icons/swallow.png"), "Swallow", "Can fly anywhere"),]
         
         # a) Selection Section
         tk.Label(parent, text="Select a species", bg="#F5FBEF", font = ("Comic Sans MS", 9, "bold"), fg="#4C6B32").pack(pady=10)
