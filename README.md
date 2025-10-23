@@ -1,7 +1,8 @@
 ## Welcome to HerdSim
 A realistic animal herding simulator. Featuring dynamic terrain navigation over importable 2D heightmaps, and multiple species with unique behaviours.
 
-![image](https://github.com/user-attachments/assets/4df4ad9f-8cd2-4871-81ca-c186ad7dc1fd)
+<img src="https://github.com/user-attachments/assets/42b9998c-7a7d-4469-9dd1-2bbac4309795" width=600 />
+
 
 ## Demo video
 #### Coming soon ... 👀
