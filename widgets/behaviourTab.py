@@ -80,6 +80,7 @@ class BehaviourTab(tk.Frame):
                      fg="#4C6B32", font=("Comic Sans MS", 8)).grid(row=0, column=0, sticky="w")
             
             #tool tip to label
+
             ToolTip(param_frame.winfo_children()[-1], msg=tooltips.get(param, ""), delay=1, bd=1, font=("Comic Sans MS", 8, "bold"), bg="#E2F0D9", fg="#4C6B32")
 
             # Value entry field
