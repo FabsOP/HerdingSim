@@ -82,3 +82,73 @@ def test_zoom_does_not_enter_frame_history(makeCanvas):
     assert (c.camera.offsetX, c.camera.offsetY) == offsetBefore
     for frame in c.frames:
         assert set(frame.keys()) == {"boids", "obstacles", "waypoints"}
+
+
+class Wheel:
+    def __init__(self, x, y, delta, ctrl):
+        self.x, self.y, self.delta = x, y, delta
+        self.num = "??"
+        self.state = 0x0004 if ctrl else 0
+
+
+class PaintCtl(Ctl):
+    def get_selected_terrain(self):
+        return "Sand"
+
+
+def brush_width(canvas):
+    # the item coords, not bbox, because the 5px outline stroke does not scale
+    items = canvas.find_withtag("brush")
+    if not items:
+        return None
+    x1, _, x2, _ = canvas.coords(items[0])
+    return x2 - x1
+
+
+def test_brush_outline_resizes_on_the_zoom_event_itself(makeCanvas):
+    c = makeCanvas()
+    c.controller = PaintCtl()
+    c.mouseOnCanvas = True
+    sc.paintWindowWidth = 20
+
+    c._redrawCursor(Ev(60, 60))
+    before = brush_width(c)
+    assert before is not None
+
+    c.handleScrollWheel(Wheel(60, 60, 120, ctrl=True))
+
+    assert c.camera.zoom == 1.5
+    after = brush_width(c)
+    assert after is not None, "brush outline vanished after zooming"
+    assert after > before, "brush outline kept its old size until the mouse moved"
+    assert after == pytest.approx(before * 1.5, abs=1)
+
+
+def test_zooming_all_the_way_in_keeps_the_outline_in_step(makeCanvas):
+    c = makeCanvas()
+    c.controller = PaintCtl()
+    c.mouseOnCanvas = True
+    sc.paintWindowWidth = 20
+
+    c._redrawCursor(Ev(60, 60))
+    baseline = brush_width(c)
+
+    for expected in ZOOM_LEVELS[1:]:
+        c.handleScrollWheel(Wheel(60, 60, 120, ctrl=True))
+        assert c.camera.zoom == expected
+        assert brush_width(c) == pytest.approx(baseline * expected, abs=1)
+
+
+def test_plain_wheel_still_resizes_the_brush_and_does_not_zoom(makeCanvas):
+    c = makeCanvas()
+    c.controller = PaintCtl()
+    c.mouseOnCanvas = True
+    sc.paintWindowWidth = 20
+
+    c._redrawCursor(Ev(60, 60))
+    before = brush_width(c)
+
+    c.handleScrollWheel(Wheel(60, 60, 120, ctrl=False))
+
+    assert c.camera.zoom == 1.0
+    assert brush_width(c) > before

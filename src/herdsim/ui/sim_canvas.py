@@ -758,10 +758,27 @@ class SimCanvas(tk.Canvas):
         if e.state & 0x0004:
             direction = 1 if (getattr(e, "delta", 0) > 0 or getattr(e, "num", 0) == 4) else -1
             if self.camera.zoomAt(e.x, e.y, direction):
-                self.delete("paint_bucket")
                 self.refreshView()
+                self._redrawCursor(e)
             return
         self.handleBrushResize(e)
+
+    def _redrawCursor(self, e):
+        self.delete(self.windowRec)
+        if not self.mouseOnCanvas:
+            return
+        if self.controller.get_selected_terrain() not in list(color_map) + ["Eraser"]:
+            return
+
+        if paintWindowWidth > 0:
+            self.config(cursor="none")
+            self._drawBrushWindow(e)
+        else:
+            self.delete("paint_bucket")
+            if self.controller.get_selected_terrain() != "Eraser":
+                self.create_image(e.x, e.y, image=self.paintBucketIcon, tags="paint_bucket")
+            else:
+                self.config(cursor="X_cursor")
 
     def handleSpaceDown(self, _):
         if not self.isPanning:
@@ -796,19 +813,7 @@ class SimCanvas(tk.Canvas):
                 print(f"decreasing brush size: {paintWindowWidth}")
                 paintWindowWidth = max(0, paintWindowWidth - paintWindowStep)
             
-            #delete previous window    
-            self.delete(self.windowRec)
-            
-            #draw new window
-            if self.mouseOnCanvas and paintWindowWidth > 0:
-                self.config(cursor="none")
-                self._drawBrushWindow(e)
-            elif self.mouseOnCanvas and paintWindowWidth == 0:
-                self.delete("paint_bucket")
-                if self.controller.get_selected_terrain() != "Eraser":
-                    self.create_image(e.x, e.y, image=self.paintBucketIcon, tags="paint_bucket")
-                else:
-                    self.config(cursor="X_cursor")
+            self._redrawCursor(e)
             
     def handleRightClick(self,e):
         # we can't interact with the canvas during rewinding
