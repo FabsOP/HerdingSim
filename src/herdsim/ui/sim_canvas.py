@@ -93,7 +93,10 @@ class SimCanvas(tk.Canvas):
         self.camera = Camera(terrain.width, terrain.height, self.width, self.height)
         self.isPainting = False
         self.mouseOnCanvas = False
+        self.isPanning = False
+        self.panAnchor = None
         
+        self.spriteCache = {}
         self.waypoints = {species: None for species in behaviours.keys()}
         waypointIconNames = {"Fox": "icons/fox_wp.png"}
         self.waypointImages = {
@@ -141,6 +144,9 @@ class SimCanvas(tk.Canvas):
         #right click to place waypoint
         self.bind("<Button-3>", self.handleRightClick)
 
+        self.bind_all("<KeyPress-space>", self.handleSpaceDown)
+        self.bind_all("<KeyRelease-space>", self.handleSpaceUp)
+
     def setBgImage(self, bgImage):
         self.bgPhoto = ImageTk.PhotoImage(bgImage)
         if self.bgPhotoID is None:
@@ -152,6 +158,43 @@ class SimCanvas(tk.Canvas):
     @property
     def numFrames(self):
         return len(self.frames)
+
+    def _scaled(self, key, path, baseSize):
+        zoom = self.camera.zoom
+        cacheKey = (key, zoom)
+        photo = self.spriteCache.get(cacheKey)
+        if photo is None:
+            size = max(1, int(round(baseSize * zoom)))
+            photo = ImageTk.PhotoImage(Image.open(path).resize((size, size)))
+            self.spriteCache[cacheKey] = photo
+        return photo
+
+    def _boidImage(self, species):
+        if self.camera.zoom == 1.0:
+            return self.boidImages[species]
+        return self._scaled(("boid", species),
+                            resource_path(f"icons/{species.lower()}_land.png"),
+                            behaviours[species]["size"])
+
+    def _waypointImage(self, species):
+        if self.camera.zoom == 1.0:
+            return self.waypointImages[species]
+        name = "icons/fox_wp.png" if species == "Fox" else f"icons/{species.lower()}_waypoint.png"
+        return self._scaled(("wp", species), resource_path(name), 30)
+
+    def _obstacleImage(self, obstacleType, biome, fallback):
+        if self.camera.zoom == 1.0 or biome is None:
+            return fallback
+        return self._scaled(("obs", obstacleType, biome),
+                            obstacles[obstacleType]["image-terrain-map"][biome],
+                            obstacles[obstacleType]["size"])
+
+    def refreshView(self):
+        left, top, right, bottom = self.camera.visibleRegion()
+        crop = self.terrain.contourImg.crop((int(left), int(top), int(right), int(bottom)))
+        if crop.size != (self.width, self.height):
+            crop = crop.resize((self.width, self.height), Image.NEAREST)
+        self.setBgImage(crop)
 
     def _terrainEvent(self, e):
         tx, ty = self.camera.toTerrain(e.x, e.y)
@@ -167,7 +210,7 @@ class SimCanvas(tk.Canvas):
         return (x - e.x) ** 2 + (y - e.y) ** 2 <= half_width ** 2
 
     def _drawBrushWindow(self, e, colour="#C1E1C1"):
-        half_width = paintWindowWidth // 2
+        half_width = int(paintWindowWidth * self.camera.zoom) // 2
         shape = self.create_rectangle if self.controller.get_brush_shape() == "Square" else self.create_oval
         self.windowRec = shape(e.x - half_width, e.y - half_width,
                                e.x + half_width, e.y + half_width,
@@ -266,17 +309,21 @@ class SimCanvas(tk.Canvas):
                     
 
 
-                self.create_image(animal.position[0], animal.position[1], image=self.boidImages[species], tags=("animal", species))
+                cx, cy = self.camera.toCanvas(animal.position[0], animal.position[1])
+                self.create_image(cx, cy, image=self._boidImage(species), tags=("animal", species))
         
         # Draw waypoints
         for species, waypoint in self.waypoints.items():
             if waypoint is not None:
-                self.create_image(waypoint[0], waypoint[1], image=self.waypointImages[species], tags="waypoint")
+                cx, cy = self.camera.toCanvas(waypoint[0], waypoint[1])
+                self.create_image(cx, cy, image=self._waypointImage(species), tags="waypoint")
         
         # Draw obstacles
         for obstacle in self.obstacles:
-            _, x, y, _, _, tkImage = obstacle
-            self.create_image(x, y, image=tkImage, tags="obstacle")
+            obstacleType, x, y, _, _, tkImage = obstacle[:6]
+            biome = obstacle[6] if len(obstacle) > 6 else None
+            cx, cy = self.camera.toCanvas(x, y)
+            self.create_image(cx, cy, image=self._obstacleImage(obstacleType, biome, tkImage), tags="obstacle")
             
             # # Draw hitbox circle around the obstacle
             # self.create_oval(x - hitbox_radius + hitboxOffset[0], y - hitbox_radius + hitboxOffset[1],
@@ -562,6 +609,10 @@ class SimCanvas(tk.Canvas):
                     
     # event handlers
     def handleClick(self, e):
+        if self.isPanning:
+            self.panAnchor = (e.x, e.y)
+            return
+
         # we can't interact with the canvas during rewinding
         if self.mediaController.state in REWIND_STATES:
             return
@@ -601,14 +652,14 @@ class SimCanvas(tk.Canvas):
                 tkImage = ImageTk.PhotoImage(image)
                 hitboxRadius = obstacles[terrain]["hitbox-radius"]
                 hitboxOffset = obstacles[terrain]["hitbox-offset"]
-                self.obstacles.append((terrain, e.x, e.y, hitboxRadius,hitboxOffset, tkImage))
+                self.obstacles.append((terrain, e.x, e.y, hitboxRadius,hitboxOffset, tkImage, terrainType))
                 
             elif terrain in ["Eraser"]:
                 # remove obstacle or boid if clicked on one i.e window width is 0
                 if paintWindowWidth == 0:
                     #find obstacle at click position
                     for obstacle in self.obstacles:
-                        obstacle_type, x, y, _, _, _ = obstacle
+                        obstacle_type, x, y = obstacle[0], obstacle[1], obstacle[2]
                         size = obstacles[obstacle_type]["size"]
                         half_size = size // 2
                         if (e.x >= x - half_size and e.x <= x + half_size and
@@ -646,6 +697,10 @@ class SimCanvas(tk.Canvas):
         # print(f"Type at ({e.x} {e.y}): {self.terrain.typeAt(e.x, e.y)}")
         # print(f"Height at ({e.x} {e.y}): {self.terrain.heightAt(e.x, e.y)}")
         
+        if self.isPanning:
+            self.handlePanDrag(e)
+            return
+
         self.mouseOnCanvas = True
         
         if self.controller.get_selected_animal() != None or self.controller.get_selected_terrain() in ["Tree", "Boulder", "Bush"]:
@@ -694,6 +749,35 @@ class SimCanvas(tk.Canvas):
         self.delete("paint_bucket")
             
     def handleScrollWheel(self, e):
+        #ctrl held zooms, plain wheel resizes the brush
+        if e.state & 0x0004:
+            direction = 1 if (getattr(e, "delta", 0) > 0 or getattr(e, "num", 0) == 4) else -1
+            if self.camera.zoomAt(e.x, e.y, direction):
+                self.delete("paint_bucket")
+                self.refreshView()
+            return
+        self.handleBrushResize(e)
+
+    def handleSpaceDown(self, _):
+        if not self.isPanning:
+            self.isPanning = True
+            self.panAnchor = None
+            self.config(cursor="fleur")
+
+    def handleSpaceUp(self, _):
+        self.isPanning = False
+        self.panAnchor = None
+        self.config(cursor="arrow")
+
+    def handlePanDrag(self, e):
+        if self.panAnchor is None:
+            self.panAnchor = (e.x, e.y)
+            return
+        self.camera.pan(e.x - self.panAnchor[0], e.y - self.panAnchor[1])
+        self.panAnchor = (e.x, e.y)
+        self.refreshView()
+
+    def handleBrushResize(self, e):
         global paintWindowWidth
         
         if self.controller.get_selected_terrain() in list(color_map) + ["Eraser"]:
@@ -755,6 +839,7 @@ class SimCanvas(tk.Canvas):
         
             
     def handleReleaseClick(self, e):
+        self.panAnchor = None
         #print(f"Mouse released at ({e.x}, {e.y})")
         self.isPainting = False
         print("Mouse released")

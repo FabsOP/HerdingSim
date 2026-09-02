@@ -1,7 +1,7 @@
 # HerdSim: Repository Restructure and Camera Zoom
 
 Date: 2026-09-02
-Status: awaiting review
+Status: implemented on branch restructure-and-zoom
 
 ## Context
 

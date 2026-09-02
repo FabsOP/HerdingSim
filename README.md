@@ -250,7 +250,19 @@ The media bar records **every** frame: agents, obstacles, waypoints and terrain 
 Rewind to before you painted that ice, then paint something else instead. The moment you
 edit the past, the old future is discarded and a new branch begins from where you are.
 
-### ⑧ Choose the edge of the world
+### ⑧ Look closer
+
+Hold **Ctrl** and scroll to zoom in on whatever is under the cursor, through `1x`, `1.5x`,
+`2x`, `3x` and `4x`. Plain scrolling still resizes the brush, so the two never fight.
+
+Hold **Space** and drag to pan. The view stays clamped inside the terrain, and painting is
+suspended while space is held so you cannot draw by accident.
+
+Zoom is a property of the camera, not of the simulation, so rewinding never moves your
+view. The brush is measured in terrain pixels, which means a 20px brush covers the same
+ground at `4x` as it does at `1x`. It just looks bigger.
+
+### ⑨ Choose the edge of the world
 
 In the **Behaviour** tab, set what the boundary means:
 
@@ -274,6 +286,8 @@ In the **Behaviour** tab, set what the boundary means:
 | **Right click** | Animal selected | Place / clear that species' waypoint |
 | **Right click** | Nothing selected | Clear **all** waypoints |
 | **Scroll wheel** | Brush or eraser | Resize brush `0 → 200` |
+| **Ctrl + scroll** | Anywhere | Zoom about the cursor, `1x` to `4x` |
+| **Space + drag** | Anywhere | Pan the view |
 | **Eraser + click** | Brush size `0` | Remove one obstacle or animal |
 | **Eraser + drag** | Brush size `> 0` | Remove everything inside the brush |
 

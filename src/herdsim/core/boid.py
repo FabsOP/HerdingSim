@@ -664,7 +664,7 @@ class Boid():
         
         #obstacles = [(obstacle_type, xpos, ypos, radius), ..]
         for obstacle in obstacles:
-            obstacle_type, xpos, ypos, hitboxRadius, hitboxOffset, _ = obstacle
+            obstacle_type, xpos, ypos, hitboxRadius, hitboxOffset, *_ = obstacle
             hitboxOffset = np.array(hitboxOffset, dtype=float)
             
             # radius not to hit the obstacle

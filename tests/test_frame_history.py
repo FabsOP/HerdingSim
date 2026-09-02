@@ -68,14 +68,6 @@ def sig(terrain):
     return counts, digest
 
 
-@pytest.fixture(scope="session")
-def root():
-    r = tk.Tk()
-    r.withdraw()
-    yield r
-    r.destroy()
-
-
 @pytest.fixture
 def canvas(root):
     terrain = Terrain(128, 128, invert=False)
