@@ -26,5 +26,6 @@ def load(fileobj):
     from herdsim.core.terrain import PALETTE_VERSION
     if getattr(terrain, "paletteVersion", 0) != PALETTE_VERSION:
         terrain.refreshPalette()
+        terrain.paletteMigrated = True
 
     return terrain

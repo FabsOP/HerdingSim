@@ -194,6 +194,29 @@ class TerrainLoader(tk.Tk):
         return name[:18] + "..." if len(name) > 18 else name
 
     @staticmethod
+    def _persistMigration(path, terrain):
+        """Write back a terrain whose palette compat.load had to rebuild.
+
+        Rebuilding costs ~0.18s per terrain and repeats on every launch until the
+        migrated form reaches disk. path may be unwritable.
+        """
+        try:
+            del terrain.paletteMigrated
+        except AttributeError:
+            pass
+
+        tmp = path + ".tmp"
+        try:
+            with open(tmp, 'wb') as f:
+                pkl.dump(terrain, f)
+            os.replace(tmp, path)
+        except Exception:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+
+    @staticmethod
     def _makeFlatTerrain(path):
         flatTerrain = Terrain(512, 512, invert=False)
         flatTerrain.load(None, "Grass", levels=15)
@@ -243,21 +266,25 @@ class TerrainLoader(tk.Tk):
                 try:
                     with open(os.path.join(terrainDir, file), 'rb') as f:
                         terrain = compat.load(f)
-                        display_name = file.replace(".terrain", "")
-                        
-                        # Put flat terrain first if it exists
-                        terrain_entry = {
-                            "name": self._displayName(display_name),
-                            "full_name": display_name,
-                            "terrain": terrain
-                        }
-                        
-                        if file == "flat.terrain":
-                            terrain_entry["name"] = "Flat Terrain"
-                            terrains.insert(0, terrain_entry)
-                        else:
-                            terrains.append(terrain_entry)
-                            
+
+                    if getattr(terrain, "paletteMigrated", False):
+                        self._persistMigration(os.path.join(terrainDir, file), terrain)
+
+                    display_name = file.replace(".terrain", "")
+
+                    # Put flat terrain first if it exists
+                    terrain_entry = {
+                        "name": self._displayName(display_name),
+                        "full_name": display_name,
+                        "terrain": terrain
+                    }
+
+                    if file == "flat.terrain":
+                        terrain_entry["name"] = "Flat Terrain"
+                        terrains.insert(0, terrain_entry)
+                    else:
+                        terrains.append(terrain_entry)
+
                 except Exception as e:
                     print(f"Failed to load {file}: {e}")
         
