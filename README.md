@@ -313,7 +313,11 @@ python run.py
 Run the tests with `python -m pytest tests`.
 
 **Requirements:** Python 3.9+, and Tk (bundled with python.org builds).
-A prebuilt `HerdSim.exe` sits in the project root if you would rather just run it.
+
+To build a standalone Windows executable, install PyInstaller with
+`pip install pyinstaller` and run `pyinstaller app.spec`. The build lands at
+`dist/HerdSim.exe` and carries its own assets, so it runs without Python installed.
+A `terrain/` folder is created next to the executable on first launch.
 
 ---
 
