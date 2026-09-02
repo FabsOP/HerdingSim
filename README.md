@@ -351,7 +351,7 @@ Code/
 │   └── readme/                 the diagrams on this page
 ├── tests/                      paint, rewind and camera regression tests
 ├── docs/                       design specs and plans
-└── saves/                      your terrains (.terrain)
+└── saves/                      your terrains, created on first run, not in git
 ```
 
 ---
