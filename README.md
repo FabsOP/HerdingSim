@@ -185,7 +185,7 @@ Launch HerdSim. The **Terrain Loader** opens first.
 
 *Want your own landscape?* Hit **Upload Heightmap** and choose any square PNG/JPG/TIFF.
 Bright pixels become high ground. Non-512px images are rescaled for you, and the result is
-saved into `saves/` so it is there next time.
+saved into `terrain/` so it is there next time.
 
 ### ② Spawn a herd
 
@@ -349,9 +349,10 @@ Code/
 │   ├── audio/music/            ambient soundtrack
 │   ├── default_terrains/       bundled landscapes
 │   └── readme/                 the diagrams on this page
+├── heightmaps/                 source images to feed Upload Heightmap
 ├── tests/                      paint, rewind and camera regression tests
 ├── docs/                       design specs and plans
-└── saves/                      your terrains, created on first run, not in git
+└── terrain/                    your terrains, created on first run, not in git
 ```
 
 ---

@@ -1,4 +1,4 @@
-"""When frozen, assets come out of the PyInstaller bundle and saves sit beside the exe."""
+"""When frozen, assets come out of the PyInstaller bundle and terrainDir sit beside the exe."""
 import os
 import sys
 
@@ -28,11 +28,11 @@ def test_assets_resolve_into_the_bundle(frozen):
     assert os.path.exists(resolved)
 
 
-def test_saves_land_beside_the_executable_not_in_the_bundle(frozen):
+def test_terrain_dir_lands_beside_the_executable(frozen):
     bundle, appdir = frozen
-    saves = path_utils.user_data_path("saves")
-    assert saves == os.path.join(str(appdir), "saves")
-    assert str(bundle) not in saves
+    terrainDir = path_utils.user_data_path("terrain")
+    assert terrainDir == os.path.join(str(appdir), "terrain")
+    assert str(bundle) not in terrainDir
 
 
 def test_project_root_is_the_executable_directory(frozen):

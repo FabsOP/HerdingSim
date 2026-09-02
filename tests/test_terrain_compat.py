@@ -16,7 +16,7 @@ def terrain_files(directory):
 
 
 def all_terrain_files():
-    return terrain_files(user_data_path("saves")) + terrain_files(resource_path("default_terrains"))
+    return terrain_files(user_data_path("terrain")) + terrain_files(resource_path("default_terrains"))
 
 
 def test_there_are_terrains_to_load():
@@ -36,7 +36,7 @@ def test_loadSaves_finds_every_terrain_on_disk():
     loader.savedTerrains = []
     loader.loadSaves()
 
-    onDisk = {os.path.basename(p)[: -len(".terrain")] for p in terrain_files(user_data_path("saves"))}
+    onDisk = {os.path.basename(p)[: -len(".terrain")] for p in terrain_files(user_data_path("terrain"))}
     loaded = {entry["full_name"] for entry in loader.savedTerrains}
     assert onDisk - loaded == set(), f"terrains on disk that the loader missed: {onDisk - loaded}"
     assert len(loader.savedTerrains) == len(onDisk)

@@ -1,4 +1,4 @@
-"""saves/ is not tracked, so a fresh clone must rebuild it from the bundled defaults."""
+"""terrain/ is not tracked, so a fresh clone must rebuild it from the bundled defaults."""
 import pickle as pkl
 
 import pytest
@@ -11,7 +11,7 @@ from herdsim.utils.path_utils import resource_path
 
 @pytest.fixture
 def fresh_checkout(tmp_path, monkeypatch):
-    saves = tmp_path / "saves"
+    terrainDir = tmp_path / "terrain"
     defaults = tmp_path / "default_terrains"
     defaults.mkdir()
 
@@ -32,7 +32,7 @@ def fresh_checkout(tmp_path, monkeypatch):
     monkeypatch.setattr(loader_module, "user_data_path", lambda rel: str(tmp_path / rel))
     monkeypatch.setattr(loader_module, "resource_path",
                         lambda rel: str(defaults) if rel == "default_terrains" else resource_path(rel))
-    return saves, defaults
+    return terrainDir, defaults
 
 
 def loadInto(_):
@@ -42,25 +42,25 @@ def loadInto(_):
     return loader
 
 
-def test_saves_is_created_when_missing(fresh_checkout):
-    saves, _ = fresh_checkout
-    assert not saves.exists()
+def test_terrain_dir_is_created_when_missing(fresh_checkout):
+    terrainDir, _ = fresh_checkout
+    assert not terrainDir.exists()
     loadInto(None)
-    assert saves.is_dir()
+    assert terrainDir.is_dir()
 
 
 def test_bundled_defaults_are_copied_on_first_run(fresh_checkout):
-    saves, _ = fresh_checkout
+    terrainDir, _ = fresh_checkout
     loader = loadInto(None)
     names = {entry["full_name"] for entry in loader.savedTerrains}
     assert "Valley" in names, f"defaults were not copied, got {names}"
-    assert (saves / "Valley.terrain").exists()
+    assert (terrainDir / "Valley.terrain").exists()
 
 
 def test_flat_terrain_is_always_available(fresh_checkout):
-    saves, _ = fresh_checkout
+    terrainDir, _ = fresh_checkout
     loader = loadInto(None)
-    assert (saves / "flat.terrain").exists()
+    assert (terrainDir / "flat.terrain").exists()
     assert loader.savedTerrains[0]["name"] == "Flat Terrain"
 
 
@@ -72,9 +72,9 @@ def test_second_run_does_not_duplicate(fresh_checkout):
 
 
 def test_terrains_copied_on_first_run_are_loadable(fresh_checkout):
-    saves, _ = fresh_checkout
+    terrainDir, _ = fresh_checkout
     loadInto(None)
     from herdsim.utils import compat
-    with open(saves / "Valley.terrain", "rb") as fh:
+    with open(terrainDir / "Valley.terrain", "rb") as fh:
         terrain = compat.load(fh)
     assert terrain.width > 0 and terrain.typegrid is not None

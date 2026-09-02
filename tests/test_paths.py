@@ -10,8 +10,8 @@ def test_project_root_contains_src_and_assets():
     assert os.path.isdir(os.path.join(root, "assets"))
 
 
-def test_saves_resolves_inside_the_repository():
-    assert os.path.dirname(user_data_path("saves")) == project_root()
+def test_terrain_dir_resolves_inside_the_repository():
+    assert os.path.dirname(user_data_path("terrain")) == project_root()
 
 
 def test_every_resource_path_reference_resolves():

@@ -33,7 +33,7 @@ def resource_path(relative_path):
 
 def user_data_path(relative_path):
     """
-    Get path for USER-CREATED files (saves, uploads, etc.)
+    Get path for USER-CREATED files (terrains, uploads, etc.)
     Always resolves inside the app root, whether frozen or run from source.
     """
     return os.path.join(project_root(), relative_path)

@@ -187,7 +187,7 @@ class TerrainLoader(tk.Tk):
 
     @staticmethod
     def _savePath(name):
-        return os.path.join(user_data_path("saves"), f"{name}.terrain")
+        return os.path.join(user_data_path("terrain"), f"{name}.terrain")
 
     @staticmethod
     def _displayName(name):
@@ -207,12 +207,12 @@ class TerrainLoader(tk.Tk):
         return img.resize((size, size))
 
     def loadSaves(self):
-        savesDir = user_data_path("saves")
-        if not os.path.exists(savesDir):
-            os.makedirs(savesDir)
+        terrainDir = user_data_path("terrain")
+        if not os.path.exists(terrainDir):
+            os.makedirs(terrainDir)
         
-        # Check if this is first run (saves folder is empty)
-        is_first_run = len([f for f in os.listdir(savesDir) if f.endswith('.terrain')]) == 0
+        # Check if this is first run (terrain folder is empty)
+        is_first_run = len([f for f in os.listdir(terrainDir) if f.endswith('.terrain')]) == 0
         
         if is_first_run:
             print("First run detected - copying default terrains...")
@@ -223,7 +223,7 @@ class TerrainLoader(tk.Tk):
                 for file in os.listdir(default_terrains_dir):
                     if file.endswith('.terrain'):
                         src = os.path.join(default_terrains_dir, file)
-                        dst = os.path.join(savesDir, file)
+                        dst = os.path.join(terrainDir, file)
                         try:
                             shutil.copy2(src, dst)
                             print(f"  ✓ Copied {file}")
@@ -231,17 +231,17 @@ class TerrainLoader(tk.Tk):
                             print(f"  ✗ Failed to copy {file}: {e}")
         
         #if flat.terrain does not exist, create it
-        flatTerrainPath = os.path.join(savesDir, "flat.terrain")
+        flatTerrainPath = os.path.join(terrainDir, "flat.terrain")
         if not os.path.exists(flatTerrainPath):
             self._makeFlatTerrain(flatTerrainPath)
         
-        # Load all terrains from saves directory
+        # Load all terrains from the terrain directory
         terrains = []
         
-        for file in sorted(os.listdir(savesDir)):
+        for file in sorted(os.listdir(terrainDir)):
             if file.endswith(".terrain"):
                 try:
-                    with open(os.path.join(savesDir, file), 'rb') as f:
+                    with open(os.path.join(terrainDir, file), 'rb') as f:
                         terrain = compat.load(f)
                         display_name = file.replace(".terrain", "")
                         
@@ -263,7 +263,7 @@ class TerrainLoader(tk.Tk):
         
         # If no terrains loaded, create default flat
         if not terrains:
-            flatTerrain = self._makeFlatTerrain(os.path.join(savesDir, "flat.terrain"))
+            flatTerrain = self._makeFlatTerrain(os.path.join(terrainDir, "flat.terrain"))
             terrains = [{
                 "name": "Flat Terrain",
                 "full_name": "flat",
