@@ -21,4 +21,10 @@ class _Unpickler(pickle.Unpickler):
 
 
 def load(fileobj):
-    return _Unpickler(fileobj).load()
+    terrain = _Unpickler(fileobj).load()
+
+    from herdsim.core.terrain import PALETTE_VERSION
+    if getattr(terrain, "paletteVersion", 0) != PALETTE_VERSION:
+        terrain.refreshPalette()
+
+    return terrain

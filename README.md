@@ -358,8 +358,11 @@ Code/
 
 ## 🙏 Credits
 
-Built on the shoulders of Craig Reynolds' *Flocks, Herds and Schools: A Distributed
-Behavioral Model* (SIGGRAPH 1987). The paper is included as `boidsPaper.pdf`.
+The terrain-following model comes from Joel Gompert's *Flocking Over 3D Terrain*
+(University of Nebraska-Lincoln, 2003), included here as `boidsPaper.pdf`. It extends
+Craig Reynolds' *Flocks, Herds and Schools: A Distributed Behavioral Model* (SIGGRAPH
+1987) with slope correction, energy expenditure and the drag forces that give each species
+its weight.
 
 Heightmaps can be sourced from
 [manticorp's Unreal Heightmap Generator](https://manticorp.github.io/unrealheightmap/),

@@ -1,7 +1,7 @@
 import tkinter as tk
 
-#widgets that draw a dotted focus ring and steal key presses such as space
-_NO_FOCUS = (tk.Button, tk.Radiobutton, tk.Checkbutton, tk.Scale, tk.Label, tk.Frame)
+#only these draw a dotted focus ring and steal key presses such as space
+_FOCUS_RING = (tk.Button, tk.Radiobutton, tk.Checkbutton, tk.Scale)
 
 
 def center_window(win, width, height, shift=30):
@@ -17,7 +17,8 @@ def suppress_focus_rings(widget):
                 child.configure(takefocus=0)
             except tk.TclError:
                 pass
-            if isinstance(child, _NO_FOCUS):
+            #frames and labels use highlightthickness for their visible border
+            if isinstance(child, _FOCUS_RING):
                 try:
                     child.configure(highlightthickness=0)
                 except tk.TclError:

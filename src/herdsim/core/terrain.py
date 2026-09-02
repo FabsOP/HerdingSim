@@ -5,6 +5,8 @@ from PIL import Image, ImageTk, ImageDraw
 import math
 
 
+PALETTE_VERSION = 2
+
 color_map = {
     "Grass": {
         "bg_color": "#184D27",  # Darker green
@@ -15,7 +17,7 @@ color_map = {
         "shade_color": "#FBDB93",
     },
     "Ice": {
-        "bg_color": "#000000",
+        "bg_color": "#09454D",
         "shade_color": "#84E3F0",
     },
     "Water": {
@@ -23,7 +25,7 @@ color_map = {
         "shade_color": "#1461A0",
     },
     "Rock": {
-        "bg_color": "#000000",
+        "bg_color": "#2B2B2B",
         "shade_color": "#A9A9A9",
     },
     "Snow": {
@@ -85,6 +87,18 @@ class Terrain:
         
         self.contour_levels = 15  
         
+    def refreshPalette(self):
+        """Rebuild the contour images after color_map has changed."""
+        for terrainType, colors in color_map.items():
+            self.contourImgs[terrainType] = self.generate_contour_map(
+                colors["bg_color"], levels=self.contour_levels,
+                shade_color=colors["shade_color"], terrain_type=terrainType)
+
+        self._build_terrain_stack()
+        ys, xs = np.indices(self.typegrid.shape)
+        self.contourImg = Image.fromarray(self.contourImgs_stack[self.typegrid, ys, xs])
+        self.paletteVersion = PALETTE_VERSION
+
     def _build_terrain_stack(self):
         """Build and cache the stacked terrain images array for fast indexing."""
         self.contourImgs_stack = np.stack([
@@ -136,6 +150,7 @@ class Terrain:
         self.typegrid.fill(type2Idx[terrainType])
         
         self._build_terrain_stack()
+        self.paletteVersion = PALETTE_VERSION
         
         print(f"Terrain loaded with heightmap shape: {self.heightmap.shape}")
         print(f"Terrain loaded with gradient field shape: {self.gradientField.shape}")
