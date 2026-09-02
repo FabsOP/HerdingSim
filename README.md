@@ -10,6 +10,7 @@
 ![Pillow](https://img.shields.io/badge/RENDER-PILLOW-7B4019?style=for-the-badge&labelColor=0E2415)
 ![pygame](https://img.shields.io/badge/AUDIO-PYGAME-1461A0?style=for-the-badge&labelColor=0E2415)
 ![Platform](https://img.shields.io/badge/PLATFORM-WINDOWS-A9A9A9?style=for-the-badge&labelColor=0E2415)
+![License](https://img.shields.io/badge/LICENSE-MIT-4C6B32?style=for-the-badge&labelColor=0E2415)
 
 ### An artificial-life sandbox where herds are never scripted, only *grown*.
 
@@ -359,8 +360,9 @@ Code/
 
 ## 🙏 Credits
 
-The terrain-following model comes from Joel Gompert's *Flocking Over 3D Terrain*
-(University of Nebraska-Lincoln, 2003), included here as `boidsPaper.pdf`. It extends
+The terrain-following model comes from Joel Gompert's
+[*Flocking Over 3D Terrain*](https://digitalcommons.unl.edu/cgi/viewcontent.cgi?article=1127&context=csetechreports)
+(University of Nebraska-Lincoln, 2003). It extends
 Craig Reynolds' *Flocks, Herds and Schools: A Distributed Behavioral Model* (SIGGRAPH
 1987) with slope correction, energy expenditure and the drag forces that give each species
 its weight.
@@ -369,7 +371,13 @@ Heightmaps can be sourced from
 [manticorp's Unreal Heightmap Generator](https://manticorp.github.io/unrealheightmap/),
 linked directly from the terrain loader.
 
+---
+
+## 📄 License
+
+MIT. See [LICENSE](LICENSE). Use it, fork it, ship it.
+
 <div align="center">
 <br/>
-<sub><b>Six rules go in. A herd nobody designed comes out.</b></sub>
+<sub><b>The herd is not in the code. It happens anyway.</b></sub>
 </div>
