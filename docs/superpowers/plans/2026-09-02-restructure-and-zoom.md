@@ -4,6 +4,12 @@
 
 **Goal:** Move HerdSim to a conventional `src/` package layout, then add zoom to cursor on the simulation canvas with ctrl+wheel and space+drag panning.
 
+> **Superseded in part on 2026-09-03.** The layout below describes the decision as it
+> stood on 2026-09-02. Since then: `saves/` was renamed to `terrain/` and is no longer
+> tracked in version control, being rebuilt from `assets/default_terrains/` on first run;
+> the source heightmap images live in `heightmaps/` inside the repository; and the stale
+> root `HerdSim.exe` was deleted, the build output now being `Code/dist/HerdSim.exe`.
+
 **Architecture:** Part A converts a flat script directory into `src/herdsim/{core,ui,utils}`, with `resource_path` becoming the single place that knows where assets live so that all 36 call sites stay unchanged. Part B introduces a tkinter-free `Camera` unit that owns zoom level and viewport offset, and routes every mouse handler through one canvas-to-terrain conversion, which is what actually makes zoom possible.
 
 **Tech Stack:** Python 3.9, tkinter, PIL/Pillow, numpy, pygame, mutagen, tkinter-tooltip

@@ -3,6 +3,12 @@
 Date: 2026-09-02
 Status: implemented on branch restructure-and-zoom
 
+> **Superseded in part on 2026-09-03.** The layout below describes the decision as it
+> stood on 2026-09-02. Since then: `saves/` was renamed to `terrain/` and is no longer
+> tracked in version control, being rebuilt from `assets/default_terrains/` on first run;
+> the source heightmap images live in `heightmaps/` inside the repository; and the stale
+> root `HerdSim.exe` was deleted, the build output now being `Code/dist/HerdSim.exe`.
+
 ## Context
 
 Two changes, done in order because the second is much easier once the first has landed.
