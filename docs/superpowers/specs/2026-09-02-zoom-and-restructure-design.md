@@ -224,7 +224,30 @@ Part A first. Doing zoom first would mean moving the new files immediately after
 
 ## Out of scope
 
-- The terrain palette fix for pure black low bands. Measured and understood, deferred by request.
+- The terrain palette fix for pure black low bands. Measured and understood, deferred by
+  request. The findings are recorded below so the analysis is not lost.
+
+### Deferred: the pure black contour bands
+
+`generate_contour_map` interpolates from `bg_color` at level 0, and both Ice and Rock have
+`bg_color = #000000`, so their lowest bands are identical black and paint applied there is
+invisible. A commented out `t * 0.7  # 0.7 to avoid going full black` in the same function
+shows this was hit before. Compressing the ramp that way costs contour readability, which
+is the tradeoff that made it unattractive.
+
+Separating the two jobs avoids the tradeoff entirely: luminance carries height, hue carries
+biome identity. A search over the dark ends produced:
+
+| Metric | Current | Proposed |
+|:--|--:|--:|
+| Worst case biome separation | 0.0 (Ice identical to Rock) | 39.3 |
+| Indistinguishable band and pair combinations | 3 | 0 |
+| Smallest luminance span across biomes | 51 | 86 |
+
+Values: `Ice.bg_color` `#000000` to `#002A60`, `Rock.bg_color` `#000000` to `#1C1A18`,
+`Water.shade_color` `#1461A0` to `#2E86C8`. Contour readability improves rather than
+degrades, so the feared tradeoff does not apply. The Ice value reads deep blue rather than
+glacial, which is the open question on look.
 - Rebuilding `HerdSim.exe`.
 - Any change to boid steering behaviour.
 
