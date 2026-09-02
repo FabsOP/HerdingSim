@@ -38,6 +38,7 @@ class SpeciesTab(tk.Frame):
                 cursor="hand2", activebackground="#C1E1C1", background="#E2F0D9",
                 foreground="#4C6B32", activeforeground="#4C6B32",
                 relief="raised", width=60, height=60, bd=2, font=("Comic Sans MS", 8, "bold"),
+                takefocus=0, highlightthickness=0,
                 command=lambda animal = icon[1]: self.clickAnimal(animal)
             )
             btn.grid(row=i//2, column=i%2, padx=10, pady=10)

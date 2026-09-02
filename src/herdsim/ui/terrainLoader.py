@@ -10,6 +10,7 @@ import webbrowser
 from herdsim.core.terrain import Terrain
 
 from herdsim.utils.path_utils import resource_path, user_data_path
+from herdsim.utils import compat
 from herdsim.ui.ui_utils import center_window
 
 class TerrainLoader(tk.Tk):
@@ -241,7 +242,7 @@ class TerrainLoader(tk.Tk):
             if file.endswith(".terrain"):
                 try:
                     with open(os.path.join(savesDir, file), 'rb') as f:
-                        terrain = pkl.load(f)
+                        terrain = compat.load(f)
                         display_name = file.replace(".terrain", "")
                         
                         # Put flat terrain first if it exists

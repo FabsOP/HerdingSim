@@ -86,6 +86,7 @@ class TerrainTab(tk.Frame):
                 cursor="hand2", activebackground="#FFD4D4", background="#FFF0F0",
                 foreground="#8B3A3A", activeforeground="#8B3A3A",
                 relief="raised", width=28, height=28, bd=2, font=("Comic Sans MS", 7),
+                takefocus=0, highlightthickness=0,
                 command=lambda: self.selectBrush("Circle")
                 )
         self.circle_btn.grid(row=0, column=0, padx=25, pady=10)
@@ -101,6 +102,7 @@ class TerrainTab(tk.Frame):
                 cursor="hand2", activebackground="#FFD4D4", background="#FFF0F0",
                 foreground="#8B3A3A", activeforeground="#8B3A3A",
                 relief="raised", width=28, height=28, bd=2, font=("Comic Sans MS", 7),
+                takefocus=0, highlightthickness=0,
                 command=lambda: self.selectBrush("Square")
             )
         self.square_btn.grid(row=0, column=1, padx=25, pady=10)

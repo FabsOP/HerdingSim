@@ -7,7 +7,7 @@ from herdsim.ui.sim_canvas import SimCanvas
 import os
 import sys
 from herdsim.utils.path_utils import resource_path
-from herdsim.ui.ui_utils import center_window
+from herdsim.ui.ui_utils import center_window, suppress_focus_rings
 
 #### SIMULATION CLASS ####################
 windowSizeMap = {"small": (680, 490), "large": (810, 615)}
@@ -32,6 +32,9 @@ class Simulation(tk.Tk):
         self.canvas = SimCanvas(self, terrain, self.controller, self.media)
         
         self.iconbitmap(resource_path("icons/sheep.ico"))
+
+        suppress_focus_rings(self)
+        self.canvas.focus_set()
         
         # Only set focus for entry fields, not buttons
         self.bind_all("<Button-1>", lambda e: e.widget.focus_set()

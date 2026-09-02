@@ -112,7 +112,7 @@ class SimCanvas(tk.Canvas):
         }
         
         
-        self.setBgImage(terrain.contourImg)
+        self.refreshView()
         self.paintBucketIcon = ImageTk.PhotoImage(Image.open(resource_path("icons/paint-bucket.png")).resize((15, 15)))
         
         
@@ -214,7 +214,8 @@ class SimCanvas(tk.Canvas):
         shape = self.create_rectangle if self.controller.get_brush_shape() == "Square" else self.create_oval
         self.windowRec = shape(e.x - half_width, e.y - half_width,
                                e.x + half_width, e.y + half_width,
-                               fill=None, outline=colour, width=5)
+                               fill=None, outline=colour, width=5, tags="brush")
+        self.tag_raise("brush")
 
     def _eraseInBrush(self, e):
         for obstacle in [o for o in self.obstacles
@@ -350,6 +351,8 @@ class SimCanvas(tk.Canvas):
         self.tag_raise("obstacle")
         self.tag_raise("waypoint")
         self.tag_raise("Swallow")
+        self.tag_raise("brush")
+        self.tag_raise("paint_bucket")
         # self.tag_raise("obstacle_hitbox")
         self.after(int(1000 / fps), lambda: self.update(fps, tf))
         
@@ -407,7 +410,7 @@ class SimCanvas(tk.Canvas):
                 if op_pair and len(op_pair) >= 2 and op_pair[1] is not None:
                     op_pair[1]()  # Apply forward operation
                     
-            self.setBgImage(self.terrain.contourImg)
+            self.refreshView()
             
             # Use object pooling instead of creating new boids
             self._restoreBoids(boids)
@@ -488,7 +491,7 @@ class SimCanvas(tk.Canvas):
         self.obstacles = obstacles.copy()
         self._restoreBoids(boids)
                     
-        self.setBgImage(self.terrain.contourImg)
+        self.refreshView()
         
         if self.framePointer == 0:
             mediaState = self.mediaController.state
@@ -586,7 +589,7 @@ class SimCanvas(tk.Canvas):
         # Apply the forward operation
         forward = functools.partial(self.terrain.color_region, mask, terrain_type)
         forward()
-        self.setBgImage(self.terrain.contourImg)
+        self.refreshView()
                             
         self.currentFrameTerrainOps.append((backward, forward))
         
@@ -601,7 +604,7 @@ class SimCanvas(tk.Canvas):
         
         forward = functools.partial(self.terrain.contourFill, e.x, e.y, terrain_type)
         forward()
-        self.setBgImage(self.terrain.contourImg) # Update the background image to reflect the changes
+        self.refreshView()
         
         # Add operations to current frame accumulator instead of overwriting
         self.currentFrameTerrainOps.append((backward, forward))
@@ -698,6 +701,8 @@ class SimCanvas(tk.Canvas):
         # print(f"Height at ({e.x} {e.y}): {self.terrain.heightAt(e.x, e.y)}")
         
         if self.isPanning:
+            self.delete(self.windowRec)
+            self.delete("paint_bucket")
             self.handlePanDrag(e)
             return
 
@@ -763,15 +768,16 @@ class SimCanvas(tk.Canvas):
             self.isPanning = True
             self.panAnchor = None
             self.config(cursor="fleur")
+        return "break"
 
     def handleSpaceUp(self, _):
         self.isPanning = False
         self.panAnchor = None
         self.config(cursor="arrow")
+        return "break"
 
     def handlePanDrag(self, e):
         if self.panAnchor is None:
-            self.panAnchor = (e.x, e.y)
             return
         self.camera.pan(e.x - self.panAnchor[0], e.y - self.panAnchor[1])
         self.panAnchor = (e.x, e.y)
