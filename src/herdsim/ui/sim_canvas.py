@@ -14,6 +14,7 @@ import functools
 import os
 import sys
 from herdsim.utils.path_utils import resource_path
+from herdsim.ui.camera import Camera
 from herdsim.core.terrain import color_map
 
 
@@ -21,6 +22,14 @@ paintWindowWidth = 0
 paintWindowStep = 10
 
 REWIND_STATES = ("rewind", "fast-rewind")
+
+
+class _Pt:
+    __slots__ = ("x", "y")
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 
 
 testMode = True
@@ -81,6 +90,7 @@ class SimCanvas(tk.Canvas):
         self.bgPhotoID = None
         
         self.terrain = terrain
+        self.camera = Camera(terrain.width, terrain.height, self.width, self.height)
         self.isPainting = False
         self.mouseOnCanvas = False
         
@@ -142,6 +152,12 @@ class SimCanvas(tk.Canvas):
     @property
     def numFrames(self):
         return len(self.frames)
+
+    def _terrainEvent(self, e):
+        tx, ty = self.camera.toTerrain(e.x, e.y)
+        tx = min(max(int(tx), 0), self.terrain.width - 1)
+        ty = min(max(int(ty), 0), self.terrain.height - 1)
+        return _Pt(tx, ty)
 
     def _inBrush(self, e, x, y, pad=0):
         half_width = paintWindowWidth // 2
@@ -549,6 +565,8 @@ class SimCanvas(tk.Canvas):
         # we can't interact with the canvas during rewinding
         if self.mediaController.state in REWIND_STATES:
             return
+
+        e = self._terrainEvent(e)
         
         ### ANIMAL SPAWNING 
         if self.controller.get_selected_animal() is not None:
@@ -641,7 +659,7 @@ class SimCanvas(tk.Canvas):
             brush_shape = self.controller.get_brush_shape()
         
             if self.isPainting and paintWindowWidth > 0:
-                self.fill_paint_window(e, self.controller.get_selected_terrain())
+                self.fill_paint_window(self._terrainEvent(e), self.controller.get_selected_terrain())
                 self._drawBrushWindow(e, "#FF0000")
             else:
                 if paintWindowWidth == 0:
@@ -664,7 +682,7 @@ class SimCanvas(tk.Canvas):
                 self.delete("paint_bucket")
                 self._drawBrushWindow(e)
                 if self.isPainting:
-                    self._eraseInBrush(e)
+                    self._eraseInBrush(self._terrainEvent(e))
                 
         
         else:
@@ -706,6 +724,8 @@ class SimCanvas(tk.Canvas):
         # we can't interact with the canvas during rewinding
         if self.mediaController.state in REWIND_STATES:
             return
+
+        e = self._terrainEvent(e)
         
         self.discardFuture()
         
