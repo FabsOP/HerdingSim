@@ -4,12 +4,13 @@ import pickle as pkl
 from PIL import Image, ImageTk
 import os
 import sys
+import shutil
 import webbrowser
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from terrain import Terrain
+from herdsim.core.terrain import Terrain
 
-from path_utils import resource_path, user_data_path
+from herdsim.utils.path_utils import resource_path, user_data_path
+from herdsim.ui.ui_utils import center_window
 
 class TerrainLoader(tk.Tk):
     def __init__(self):
@@ -19,14 +20,14 @@ class TerrainLoader(tk.Tk):
         self.win_height = 650
         self.geometry(f"{self.win_width}x{self.win_height}")
         self.resizable(0, 0)
-        self.config(background="#F5FBEF")
+        # self.config(background="#F5FBEF")
+        self.config(background="#FFFFFF")
         self.center_window()
         self.protocol("WM_DELETE_WINDOW", sys.exit)
 
         # Biome selection variables
         self.biomeOptions = ["Grass", "Sand", "Ice", "Rock", "Water", "Snow"]
         self.selected_biome_idx = 0
-        self.selected_biome = self.biomeOptions[self.selected_biome_idx]
         self.leftArrowImg = ImageTk.PhotoImage(Image.open(resource_path("icons/left-arrow.png")).resize((30, 30)))
         self.rightArrowImg = ImageTk.PhotoImage(Image.open(resource_path("icons/right-arrow.png")).resize((30, 30)))
 
@@ -40,7 +41,7 @@ class TerrainLoader(tk.Tk):
 
     def setup_ui(self):
         # Main container with padding
-        main_frame = tk.Frame(self, bg="#F5FBEF")
+        main_frame = tk.Frame(self, bg="#FFFFFF")
         main_frame.pack(fill="both", expand=True, padx=20, pady=20)
 
 
@@ -133,11 +134,7 @@ class TerrainLoader(tk.Tk):
         biomeFrame.pack(pady=5)
 
         # Previous preview image (previous biome)
-        prev_biome_idx = (self.selected_biome_idx - 1) % len(self.biomeOptions)
-        prev_biome = self.biomeOptions[prev_biome_idx]
-        prev_preview_img = self.get_preview_image(self.selectedTerrainIdx, prev_biome, size=100)
-        self.prevPreviewPhoto = ImageTk.PhotoImage(prev_preview_img)
-        self.prevPreviewLabel = tk.Label(biomeFrame, image=self.prevPreviewPhoto, bg="#F5FBEF", relief="solid", borderwidth=2)
+        self.prevPreviewLabel = tk.Label(biomeFrame, bg="#F5FBEF", relief="solid", borderwidth=2)
         self.prevPreviewLabel.grid(row=0, column=0, padx=(0, 10))
 
         # Left arrow button
@@ -148,11 +145,8 @@ class TerrainLoader(tk.Tk):
         prevBtn.grid(row=0, column=1, padx=5)
 
         # Main biome preview (current biome)
-        main_preview_img = self.get_preview_image(self.selectedTerrainIdx, self.selected_biome, size=200)
-        self.previewPhoto = ImageTk.PhotoImage(main_preview_img)
-        self.terrainPreview = tk.Label(biomeFrame, image=self.previewPhoto, bg="#F5FBEF", relief="solid", borderwidth=3)
+        self.terrainPreview = tk.Label(biomeFrame, bg="#F5FBEF", relief="solid", borderwidth=3)
         self.terrainPreview.grid(row=0, column=2, padx=20)
-        self.terrainPreview.image = self.previewPhoto
 
         # Right arrow button
         nextBtn = tk.Button(
@@ -162,11 +156,7 @@ class TerrainLoader(tk.Tk):
         nextBtn.grid(row=0, column=3, padx=5)
 
         # Next preview image (next biome)
-        next_biome_idx = (self.selected_biome_idx + 1) % len(self.biomeOptions)
-        next_biome = self.biomeOptions[next_biome_idx]
-        next_preview_img = self.get_preview_image(self.selectedTerrainIdx, next_biome, size=100)
-        self.nextPreviewPhoto = ImageTk.PhotoImage(next_preview_img)
-        self.nextPreviewLabel = tk.Label(biomeFrame, image=self.nextPreviewPhoto, bg="#F5FBEF", relief="solid", borderwidth=2)
+        self.nextPreviewLabel = tk.Label(biomeFrame, bg="#F5FBEF", relief="solid", borderwidth=2)
         self.nextPreviewLabel.grid(row=0, column=4, padx=(10, 0))
 
         # Biome name label (centered below main preview)
@@ -189,6 +179,26 @@ class TerrainLoader(tk.Tk):
         self.startSimBtn.pack()
         
         self.iconbitmap(resource_path("icons/sheep.ico"))
+
+    @property
+    def selected_biome(self):
+        return self.biomeOptions[self.selected_biome_idx]
+
+    @staticmethod
+    def _savePath(name):
+        return os.path.join(user_data_path("saves"), f"{name}.terrain")
+
+    @staticmethod
+    def _displayName(name):
+        return name[:18] + "..." if len(name) > 18 else name
+
+    @staticmethod
+    def _makeFlatTerrain(path):
+        flatTerrain = Terrain(512, 512, invert=False)
+        flatTerrain.load(None, "Grass", levels=15)
+        with open(path, 'wb') as f:
+            pkl.dump(flatTerrain, f)
+        return flatTerrain
 
     def get_preview_image(self, terrain_idx, biome, size=128):
         idx = terrain_idx % len(self.savedTerrains)
@@ -214,27 +224,15 @@ class TerrainLoader(tk.Tk):
                         src = os.path.join(default_terrains_dir, file)
                         dst = os.path.join(savesDir, file)
                         try:
-                            import shutil
                             shutil.copy2(src, dst)
                             print(f"  ✓ Copied {file}")
                         except Exception as e:
                             print(f"  ✗ Failed to copy {file}: {e}")
-            else:
-                # Fallback: Create default flat terrain
-                flatTerrainPath = os.path.join(savesDir, "flat.terrain")
-                if not os.path.exists(flatTerrainPath):
-                    flatTerrain = Terrain(512, 512, invert=False)
-                    flatTerrain.load(None, "Grass", levels=15)
-                    with open(flatTerrainPath, 'wb') as f:
-                        pkl.dump(flatTerrain, f)
         
         #if flat.terrain does not exist, create it
         flatTerrainPath = os.path.join(savesDir, "flat.terrain")
         if not os.path.exists(flatTerrainPath):
-            flatTerrain = Terrain(512, 512, invert=False)
-            flatTerrain.load(None, "Grass", levels=15)
-            with open(flatTerrainPath, 'wb') as f:
-                pkl.dump(flatTerrain, f)        
+            self._makeFlatTerrain(flatTerrainPath)
         
         # Load all terrains from saves directory
         terrains = []
@@ -248,7 +246,7 @@ class TerrainLoader(tk.Tk):
                         
                         # Put flat terrain first if it exists
                         terrain_entry = {
-                            "name": display_name[:18] + "..." if len(display_name) > 18 else display_name,
+                            "name": self._displayName(display_name),
                             "full_name": display_name,
                             "terrain": terrain
                         }
@@ -264,11 +262,7 @@ class TerrainLoader(tk.Tk):
         
         # If no terrains loaded, create default flat
         if not terrains:
-            flatTerrain = Terrain(512, 512, invert=False)
-            flatTerrain.load(None, "Grass", levels=15)
-            flatTerrainPath = os.path.join(savesDir, "flat.terrain")
-            with open(flatTerrainPath, 'wb') as f:
-                pkl.dump(flatTerrain, f)
+            flatTerrain = self._makeFlatTerrain(os.path.join(savesDir, "flat.terrain"))
             terrains = [{
                 "name": "Flat Terrain",
                 "full_name": "flat",
@@ -279,28 +273,16 @@ class TerrainLoader(tk.Tk):
         
     def update_biome_previews(self):
         """Update all biome preview images"""
-        # Update main preview (current biome)
-        main_preview_img = self.get_preview_image(self.selectedTerrainIdx, self.selected_biome, size=200)
-        self.previewPhoto = ImageTk.PhotoImage(main_preview_img)
-        self.terrainPreview.config(image=self.previewPhoto)
-        self.terrainPreview.image = self.previewPhoto
+        previews = ((self.terrainPreview, 0, 200),
+                    (self.prevPreviewLabel, -1, 100),
+                    (self.nextPreviewLabel, 1, 100))
 
-        # Update previous preview (previous biome)
-        prev_biome_idx = (self.selected_biome_idx - 1) % len(self.biomeOptions)
-        prev_biome = self.biomeOptions[prev_biome_idx]
-        prev_preview_img = self.get_preview_image(self.selectedTerrainIdx, prev_biome, size=100)
-        self.prevPreviewPhoto = ImageTk.PhotoImage(prev_preview_img)
-        self.prevPreviewLabel.config(image=self.prevPreviewPhoto)
-        self.prevPreviewLabel.image = self.prevPreviewPhoto
+        for label, offset, size in previews:
+            biome = self.biomeOptions[(self.selected_biome_idx + offset) % len(self.biomeOptions)]
+            photo = ImageTk.PhotoImage(self.get_preview_image(self.selectedTerrainIdx, biome, size=size))
+            label.config(image=photo)
+            label.image = photo
 
-        # Update next preview (next biome)
-        next_biome_idx = (self.selected_biome_idx + 1) % len(self.biomeOptions)
-        next_biome = self.biomeOptions[next_biome_idx]
-        next_preview_img = self.get_preview_image(self.selectedTerrainIdx, next_biome, size=100)
-        self.nextPreviewPhoto = ImageTk.PhotoImage(next_preview_img)
-        self.nextPreviewLabel.config(image=self.nextPreviewPhoto)
-        self.nextPreviewLabel.image = self.nextPreviewPhoto
-        
     def getSelectedTerrain(self):
         terrain = self.savedTerrains[self.selectedTerrainIdx]["terrain"]
         terrain.fillAll(self.selected_biome)
@@ -315,27 +297,27 @@ class TerrainLoader(tk.Tk):
             # Update delete button state
             self.deleteBtn.config(state="disabled" if self.selectedTerrainIdx == 0 else "normal")
 
-    def prev_biome(self):
-        self.selected_biome_idx = (self.selected_biome_idx - 1) % len(self.biomeOptions)
-        self.selected_biome = self.biomeOptions[self.selected_biome_idx]
+    def _stepBiome(self, direction):
+        self.selected_biome_idx = (self.selected_biome_idx + direction) % len(self.biomeOptions)
         self.biomeVar.set(self.selected_biome)
         self.update_biome_previews()
+
+    def _stepTerrain(self, direction):
+        if len(self.savedTerrains) > 1:
+            self.selectedTerrainIdx = (self.selectedTerrainIdx + direction) % len(self.savedTerrains)
+            self.update_terrain_display()
+
+    def prev_biome(self):
+        self._stepBiome(-1)
 
     def next_biome(self):
-        self.selected_biome_idx = (self.selected_biome_idx + 1) % len(self.biomeOptions)
-        self.selected_biome = self.biomeOptions[self.selected_biome_idx]
-        self.biomeVar.set(self.selected_biome)
-        self.update_biome_previews()
+        self._stepBiome(1)
 
     def next_terrain(self):
-        if len(self.savedTerrains) > 1:
-            self.selectedTerrainIdx = (self.selectedTerrainIdx + 1) % len(self.savedTerrains)
-            self.update_terrain_display()
+        self._stepTerrain(1)
 
     def prev_terrain(self):
-        if len(self.savedTerrains) > 1:
-            self.selectedTerrainIdx = (self.selectedTerrainIdx - 1) % len(self.savedTerrains)
-            self.update_terrain_display()
+        self._stepTerrain(-1)
 
     def upload_heightmap(self):
         """Upload and add a new heightmap to the terrain list"""
@@ -394,6 +376,7 @@ class TerrainLoader(tk.Tk):
             )
             return
         
+        temp_path = None
         try:
             # Check image dimensions
             # Define your standard terrain size (match flat terrain and simulation)
@@ -418,21 +401,15 @@ class TerrainLoader(tk.Tk):
                     heightmap_path = file_path
 
             new_terrain = Terrain(STANDARD_SIZE, STANDARD_SIZE, invert=False)
-            new_terrain.load(heightmap_path, "Grass", levels=15)
+            new_terrain.load(heightmap_path, "Grass", levels=25)
             
             # Save terrain to file
-            save_path = os.path.join(user_data_path("saves"), f"{terrain_name}.terrain")
+            save_path = self._savePath(terrain_name)
             with open(save_path, 'wb') as f:
                 pkl.dump(new_terrain, f)
             
-            # Add to terrain list
-            if len(terrain_name) > 18:
-                display_name = terrain_name[:18] + "..."
-            else:
-                display_name = terrain_name
-            
             self.savedTerrains.append({
-                "name": display_name,
+                "name": self._displayName(terrain_name),
                 "full_name": terrain_name,
                 "terrain": new_terrain
             })
@@ -453,7 +430,7 @@ class TerrainLoader(tk.Tk):
             )
             
         #remove temp heightmap if it exists
-        if 'temp_path' in locals() and os.path.exists(temp_path):
+        if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
         
 
@@ -486,7 +463,7 @@ class TerrainLoader(tk.Tk):
         
         try:
             # Remove save file
-            save_path = os.path.join(user_data_path("saves"), f"{terrain_name}.terrain")
+            save_path = self._savePath(terrain_name)
             if os.path.exists(save_path):
                 os.remove(save_path)
             
@@ -512,24 +489,14 @@ class TerrainLoader(tk.Tk):
 
     def open_heightmap_website(self):
         """Open website to download heightmaps"""
-        url = "https://manticorp.github.io/unrealheightmap/index.html#latitude/35.362806018776496/longitude/138.7302017211914/zoom/13/outputzoom/14/width/512/height/512"  # Replace with your desired URL
-        if url:
-            webbrowser.open(url)
-        else:
-            messagebox.showinfo(
-                "Coming Soon",
-                "Heightmap download link will be added soon!"
-            )
+        url = "https://manticorp.github.io/unrealheightmap/index.html#latitude/35.362806018776496/longitude/138.7302017211914/zoom/13/outputzoom/14/width/512/height/512"
+        webbrowser.open(url)
 
     def startSimulation(self):
         self.destroy()
 
     def center_window(self):
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        x = (screen_width // 2) - (self.win_width // 2)
-        y = (screen_height // 2) - (self.win_height // 2) -30
-        self.geometry(f"+{x}+{y}")
+        center_window(self, self.win_width, self.win_height)
 
 if __name__ == "__main__":
     t = TerrainLoader()

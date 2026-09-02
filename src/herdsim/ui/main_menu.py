@@ -4,8 +4,7 @@ import os
 
 import webbrowser
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from path_utils import resource_path
+from herdsim.utils.path_utils import resource_path
 
 class MainMenu(tk.Tk):
     def __init__(self):

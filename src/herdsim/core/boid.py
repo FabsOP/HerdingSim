@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image, ImageTk
 import copy
 # import time
-from vector import dot, magnitude, ssq, unit, vectorAngle
+from herdsim.core.vector import dot, magnitude, ssq, unit, vectorAngle
 # import threading
 
 

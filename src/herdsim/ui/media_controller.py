@@ -3,8 +3,7 @@ from tkinter import ttk
 
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from path_utils import resource_path
+from herdsim.utils.path_utils import resource_path
 
 
 class MediaController(tk.Frame):

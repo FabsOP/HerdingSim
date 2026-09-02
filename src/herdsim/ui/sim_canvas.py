@@ -2,29 +2,32 @@ import itertools
 import tkinter as tk
 from PIL import Image, ImageTk
 import numpy as np
-from boid import behaviours
-import copy
+from herdsim.core.boid import behaviours
 
-import boid
+from herdsim.core import boid
 import time
 
-from vector import vectorAngle
-from types import SimpleNamespace
+from herdsim.core.vector import vectorAngle
 import random
 import functools
 
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from path_utils import resource_path
+from herdsim.utils.path_utils import resource_path
+from herdsim.core.terrain import color_map
 
 
 paintWindowWidth = 0
 paintWindowStep = 10
 
-borderMode = "Void"  # Options: "Die", "Wrap", "Bounce"
+REWIND_STATES = ("rewind", "fast-rewind")
+
 
 testMode = True
+
+
+def _obstacleIcons(folder):
+    return {biome: resource_path(f"icons/{folder}/{biome}.png") for biome in color_map}
 
 
 obstacles = {
@@ -32,40 +35,19 @@ obstacles = {
         "size": 32,
         "hitbox-radius": 8,
         "hitbox-offset": [0, 4],
-        "image-terrain-map": {
-            "Grass": resource_path("icons/trees/Grass.png"),
-            "Sand": resource_path("icons/trees/Sand.png"),
-            "Ice": resource_path("icons/trees/Ice.png"),
-            "Water": resource_path("icons/trees/Water.png"),
-            "Snow": resource_path("icons/trees/Snow.png"),
-            "Rock": resource_path("icons/trees/Rock.png"),
-        }
+        "image-terrain-map": _obstacleIcons("trees"),
     },
     "Boulder": {
         "size": 32,
         "hitbox-radius": 16,
         "hitbox-offset": [0, 0],
-        "image-terrain-map": {
-            "Grass": resource_path("icons/boulders/Grass.png"),
-            "Sand": resource_path("icons/boulders/Sand.png"),
-            "Ice": resource_path("icons/boulders/Ice.png"),
-            "Water": resource_path("icons/boulders/Water.png"),
-            "Snow": resource_path("icons/boulders/Snow.png"),
-            "Rock": resource_path("icons/boulders/Rock.png"),
-        }
+        "image-terrain-map": _obstacleIcons("boulders"),
     },
     "Bush": {
         "size": 32,
         "hitbox-radius": 8,
         "hitbox-offset": [0, 0],
-        "image-terrain-map": {
-            "Grass": resource_path("icons/bushes/Grass.png"),
-            "Sand": resource_path("icons/bushes/Sand.png"),
-            "Ice": resource_path("icons/bushes/Ice.png"),
-            "Water": resource_path("icons/bushes/Water.png"),
-            "Snow": resource_path("icons/bushes/Snow.png"),
-            "Rock": resource_path("icons/bushes/Rock.png"),
-        }
+        "image-terrain-map": _obstacleIcons("bushes"),
     }
 }
 
@@ -103,22 +85,17 @@ class SimCanvas(tk.Canvas):
         self.mouseOnCanvas = False
         
         self.waypoints = {species: None for species in behaviours.keys()}
+        waypointIconNames = {"Fox": "icons/fox_wp.png"}
         self.waypointImages = {
-            "Sheep": ImageTk.PhotoImage(Image.open(resource_path("icons/sheep_waypoint.png")).resize((30, 30))),
-            "Penguin": ImageTk.PhotoImage(Image.open(resource_path("icons/penguin_waypoint.png")).resize((30, 30))),
-            "Fox": ImageTk.PhotoImage(Image.open(resource_path("icons/fox_wp.png")).resize((30, 30))),
-            "Swallow": ImageTk.PhotoImage(Image.open(resource_path("icons/swallow_waypoint.png")).resize((30, 30))),
-            "Elephant": ImageTk.PhotoImage(Image.open(resource_path("icons/elephant_waypoint.png")).resize((30, 30))),
-            "Flamingo": ImageTk.PhotoImage(Image.open(resource_path("icons/flamingo_waypoint.png")).resize((30, 30)))
+            species: ImageTk.PhotoImage(Image.open(resource_path(
+                waypointIconNames.get(species, f"icons/{species.lower()}_waypoint.png"))).resize((30, 30)))
+            for species in behaviours.keys()
         }
-        
+
         self.boidImages = {
-            "Sheep": ImageTk.PhotoImage(Image.open(resource_path("icons/sheep_land.png")).resize((behaviours["Sheep"]["size"], behaviours["Sheep"]["size"]))),
-            "Penguin": ImageTk.PhotoImage(Image.open(resource_path("icons/penguin_land.png")).resize((behaviours["Penguin"]["size"], behaviours["Penguin"]["size"]))),
-            "Elephant": ImageTk.PhotoImage(Image.open(resource_path("icons/elephant_land.png")).resize((behaviours["Elephant"]["size"], behaviours["Elephant"]["size"]))),
-            "Fox": ImageTk.PhotoImage(Image.open(resource_path("icons/fox_land.png")).resize((behaviours["Fox"]["size"], behaviours["Fox"]["size"]))),
-            "Swallow": ImageTk.PhotoImage(Image.open(resource_path("icons/swallow_land.png")).resize((behaviours["Swallow"]["size"], behaviours["Swallow"]["size"]))),
-            "Flamingo": ImageTk.PhotoImage(Image.open(resource_path("icons/flamingo_land.png")).resize((behaviours["Flamingo"]["size"], behaviours["Flamingo"]["size"])))
+            species: ImageTk.PhotoImage(Image.open(resource_path(f"icons/{species.lower()}_land.png"))
+                                        .resize((behaviours[species]["size"],) * 2))
+            for species in behaviours.keys()
         }
         
         
@@ -129,14 +106,11 @@ class SimCanvas(tk.Canvas):
         ### SIMULATION FRAMES 
         self.frames = []
         self.framePointer = -1
-        self.numFrames = 0
         
         ### OPERATION HISTORY - Changed to accumulate operations per frame
         self.terrainHistory = []
         self.currentFrameTerrainOps = []  # Accumulate operations for current frame
         
-        self.pastBorder = None
-        self.pastOverlay = None
         
         
         ### EVENT BINDINGS
@@ -159,9 +133,39 @@ class SimCanvas(tk.Canvas):
 
     def setBgImage(self, bgImage):
         self.bgPhoto = ImageTk.PhotoImage(bgImage)
-        self.bgPhotoID = self.create_image(0, 0, anchor=tk.NW, image=self.bgPhoto)
-        self.lower(self.bgPhotoID)  # Ensure the background image is at the bottom layer        
-    
+        if self.bgPhotoID is None:
+            self.bgPhotoID = self.create_image(0, 0, anchor=tk.NW, image=self.bgPhoto)
+            self.lower(self.bgPhotoID)  # Ensure the background image is at the bottom layer
+        else:
+            self.itemconfig(self.bgPhotoID, image=self.bgPhoto)
+
+    @property
+    def numFrames(self):
+        return len(self.frames)
+
+    def _inBrush(self, e, x, y, pad=0):
+        half_width = paintWindowWidth // 2
+        if self.controller.get_brush_shape() == "Square":
+            return (x + pad >= e.x - half_width and x - pad <= e.x + half_width and
+                    y + pad >= e.y - half_width and y - pad <= e.y + half_width)
+        return (x - e.x) ** 2 + (y - e.y) ** 2 <= half_width ** 2
+
+    def _drawBrushWindow(self, e, colour="#C1E1C1"):
+        half_width = paintWindowWidth // 2
+        shape = self.create_rectangle if self.controller.get_brush_shape() == "Square" else self.create_oval
+        self.windowRec = shape(e.x - half_width, e.y - half_width,
+                               e.x + half_width, e.y + half_width,
+                               fill=None, outline=colour, width=5)
+
+    def _eraseInBrush(self, e):
+        for obstacle in [o for o in self.obstacles
+                         if self._inBrush(e, o[1], o[2], pad=obstacles[o[0]]["size"] // 2)]:
+            self.obstacles.remove(obstacle)
+
+        for animal in [b for b in itertools.chain.from_iterable(self.spawned_boids.values())
+                       if self._inBrush(e, b.position[0], b.position[1])]:
+            animal.kill()
+
     def _getOrCreateBoid(self, species, state=None, pos=None):
         """Get a boid from the pool or create a new one if pool is empty"""
         pool = self.boid_pools[species]
@@ -221,22 +225,25 @@ class SimCanvas(tk.Canvas):
         dt = tf - ti
         dt *= self.mediaController.dtMultiplier
         
-        if mediaState in ["rewind", "fast-rewind"] and not isPaused:
+        if isPaused:
+            self.commitPendingTerrainOps()
+        
+        if mediaState in REWIND_STATES and not isPaused:
             self.rewind(mediaState)
         
         
         
         # Draw animals
+        allBoids = list(itertools.chain.from_iterable(self.spawned_boids.values()))
         for species in self.spawned_boids.keys():
             for animal in self.spawned_boids[species]:
-                allBoids = list(itertools.chain.from_iterable(self.spawned_boids.values()))
                 
                 if animal.isDead:
                     #if an animal has been killed either by a predator or other reasons, remove
                     self.spawned_boids[species].remove(animal)
                     continue
                 
-                if not isPaused and mediaState not in ["rewind", "fast-rewind"] and self.framePointer == self.numFrames - 1: # Update animal state only if not paused and media is running and we've restored all frames
+                if not isPaused and mediaState not in REWIND_STATES and self.framePointer == self.numFrames - 1: # Update animal state only if not paused and media is running and we've restored all frames
                     animal.update(allBoids, self.terrain, self.obstacles, dt)
                     animal.setGoal(self.waypoints[species])
                     animal.handleBorder(self.controller.getBorderMode(), w=self.width, h=self.height)
@@ -261,7 +268,7 @@ class SimCanvas(tk.Canvas):
             #                  fill=None, outline="#0077FF", width=2, tags="obstacle_hitbox")
             
         # Update frames
-        if not isPaused and mediaState not in ["rewind", "fast-rewind"]:
+        if not isPaused and mediaState not in REWIND_STATES:
             self.nextFrame(mediaState)
             
         
@@ -287,7 +294,7 @@ class SimCanvas(tk.Canvas):
         # Add visual feedback for past frames
         if self.framePointer < self.numFrames - 1:
             # Semi-transparent overlay - better alignment
-            self.pastOverlay = self.create_rectangle(
+            self.create_rectangle(
                 0, 0,  # Start just inside the border
                 self.width+4, self.height+4,  # End just inside the border
                 fill="gray", 
@@ -303,6 +310,14 @@ class SimCanvas(tk.Canvas):
         
         
 
+    def commitPendingTerrainOps(self):
+        #file terrain edits made while paused onto the current frame so they stay undoable
+        if not self.currentFrameTerrainOps:
+            return
+        if 0 <= self.framePointer < len(self.terrainHistory):
+            self.terrainHistory[self.framePointer].extend(self.currentFrameTerrainOps)
+            self.currentFrameTerrainOps.clear()
+
     def nextFrame(self, mediaState):
         """Optimized nextFrame with accumulated terrain operations"""
         
@@ -317,21 +332,10 @@ class SimCanvas(tk.Canvas):
             waypoints = frame["waypoints"]
             
             # load terrain history: apply operations based on media state
+            replayDepth = {"running": 0, "forward": 1, "fast-forward": 3}.get(mediaState)
             ops_to_apply = []
-            if mediaState == "running":
-                if self.framePointer < len(self.terrainHistory):
-                    ops_to_apply = self.terrainHistory[self.framePointer]
-                
-            elif mediaState == "forward":
-                # Apply operations from previous frame and current frame
-                if self.framePointer - 1 >= 0 and self.framePointer - 1 < len(self.terrainHistory):
-                    ops_to_apply.extend(self.terrainHistory[self.framePointer - 1])
-                if self.framePointer < len(self.terrainHistory):
-                    ops_to_apply.extend(self.terrainHistory[self.framePointer])
-                
-            elif mediaState == "fast-forward":
-                # Apply operations from last 4 frames
-                for i in range(max(0, self.framePointer - 3), self.framePointer + 1):
+            if replayDepth is not None:
+                for i in range(max(0, self.framePointer - replayDepth), self.framePointer + 1):
                     if i < len(self.terrainHistory):
                         ops_to_apply.extend(self.terrainHistory[i])
             
@@ -379,7 +383,6 @@ class SimCanvas(tk.Canvas):
         # Append frame
         self.frames.append(frame)
         
-        self.numFrames = len(self.frames)
         self.framePointer += 1
     
     def discardFuture(self):
@@ -387,13 +390,12 @@ class SimCanvas(tk.Canvas):
         Discards the future frames after the current framepointer
         """
     
-        if self.mediaController.state in ["rewind", "fast-rewind"]:
+        if self.mediaController.state in REWIND_STATES:
             return
             
         
         print("Discarding future")
         self.frames = self.frames[:self.framePointer+1]
-        self.numFrames = len(self.frames)
         
         self.terrainHistory = self.terrainHistory[:self.framePointer+1]
         
@@ -403,26 +405,16 @@ class SimCanvas(tk.Canvas):
     def rewind(self, rewindType):
         """Optimized rewind with accumulated terrain operations"""
         
-        if rewindType == "rewind":
-            self.framePointer = max(0, self.framePointer-1)
-            # Apply backward operations from the frame we're leaving
-            if self.framePointer + 1 < len(self.terrainHistory):
-                ops_to_apply = self.terrainHistory[self.framePointer + 1]
-                for op_pair in reversed(ops_to_apply):  # Apply in reverse order
+        step = 1 if rewindType == "rewind" else 4
+        oldFramePointer = self.framePointer
+        self.framePointer = max(0, self.framePointer - step)
+
+        # Apply backward operations from all frames we're leaving
+        for frame_idx in range(oldFramePointer, self.framePointer, -1):
+            if frame_idx < len(self.terrainHistory):
+                for op_pair in reversed(self.terrainHistory[frame_idx]):
                     if op_pair and len(op_pair) >= 1 and op_pair[0] is not None:
                         op_pair[0]()  # Apply backward operation
-        else:
-            # Fast rewind: go back 4 frames
-            old_frame_pointer = self.framePointer
-            self.framePointer = max(0, self.framePointer-4)
-            
-            # Apply backward operations from all frames we're leaving
-            for frame_idx in range(old_frame_pointer, self.framePointer, -1):
-                if frame_idx < len(self.terrainHistory):
-                    ops_to_apply = self.terrainHistory[frame_idx]
-                    for op_pair in reversed(ops_to_apply):  # Apply in reverse order
-                        if op_pair and len(op_pair) >= 1 and op_pair[0] is not None:
-                            op_pair[0]()  # Apply backward operation
 
         frame = self.frames[self.framePointer]
         boids = frame["boids"]
@@ -439,7 +431,7 @@ class SimCanvas(tk.Canvas):
             mediaState = self.mediaController.state
             isPaused = self.mediaController.isPaused
 
-            if mediaState in ["rewind", "fast-rewind"] and not isPaused:
+            if mediaState in REWIND_STATES and not isPaused:
                 self.mediaController.pausePlay()
                 if mediaState == "rewind":
                     self.mediaController.rewind()
@@ -448,50 +440,42 @@ class SimCanvas(tk.Canvas):
                 self.mediaController.freezeRewind()
 
     def visualizeParams(self):
-        if not testMode: 
+        if not testMode:
             print("Activate test mode to visualise params")
-        else:
-            
-            # print(boid.lastModified)
-            if not boid.lastModified: return
-            
-            
-            #radial vizualizations
-            if boid.lastModified["parameter"] in ["comfort-zone", "danger-zone"]:
-                for animal in self.spawned_boids[boid.lastModified["species"]][:5]:
-                    if animal.species != boid.lastModified["species"]: continue
-                    radius = behaviours[boid.lastModified["species"]].get(boid.lastModified["parameter"],None)
-                    if radius:
-                        self.create_oval(animal.position[0]-radius[4]//1, animal.position[1]-radius[4]//1 ,animal.position[0]+radius[4]//1, animal.position[1]+radius[4]//1, fill=None, outline="#C1E1C1", width=2, tags="visual_param")
-            
-            #angle vizualizations
-            if boid.lastModified["parameter"] in ["obstacle-range", "flockmate-range", "view-angle"]:
-                for animal in self.spawned_boids[boid.lastModified["species"]][:5]:
-                    if animal.species != boid.lastModified["species"]: continue
-                    
-                    arcRadius = behaviours[boid.lastModified["species"]].get(boid.lastModified["parameter"],None)
-                    
-                    if boid.lastModified["parameter"] == "view-angle":
-                        arcRadius = behaviours[boid.lastModified["species"]].get("flockmate-range",None)
-                    
-                    viewAngle = behaviours[boid.lastModified["species"]].get("view-angle", None)
-                    if arcRadius and viewAngle:
-                        centerTheta = vectorAngle([animal.velocity[0], -animal.velocity[1]])
-                        startTheta = (centerTheta - viewAngle[4]) % 360
-                        
-                        
-                        #draw arc
-                        if boid.lastModified["parameter"] == "obstacle-range":
-                            arcColour = "#C1E1C1"
-                        elif boid.lastModified["parameter"] == "flockmate-range":
-                            arcColour = "red" if animal.hasVisableNeighbours else "#C1E1C1"
-                        elif boid.lastModified["parameter"] == "view-angle":
-                            arcColour = "#C1E1C1"
-                            
-                        self.create_arc(animal.position[0]-arcRadius[4], animal.position[1]-arcRadius[4],
-                                        animal.position[0]+arcRadius[4], animal.position[1]+arcRadius[4],
-                                        start=startTheta, extent= 2*viewAngle[4], fill=None, outline=arcColour, width=2, tags="visual_param")
-   
+            return
+
+        if not boid.lastModified: return
+
+        param = boid.lastModified["parameter"]
+        species = boid.lastModified["species"]
+        speciesBehaviour = behaviours[species]
+
+        #radial vizualizations
+        if param in ["comfort-zone", "danger-zone"]:
+            for animal in self.spawned_boids[species][:5]:
+                if animal.species != species: continue
+                radius = speciesBehaviour.get(param, None)
+                if radius:
+                    self.create_oval(animal.position[0]-radius[4]//1, animal.position[1]-radius[4]//1 ,animal.position[0]+radius[4]//1, animal.position[1]+radius[4]//1, fill=None, outline="#C1E1C1", width=2, tags="visual_param")
+
+        #angle vizualizations
+        if param in ["obstacle-range", "flockmate-range", "view-angle"]:
+            for animal in self.spawned_boids[species][:5]:
+                if animal.species != species: continue
+
+                arcRadius = speciesBehaviour.get("flockmate-range" if param == "view-angle" else param, None)
+                viewAngle = speciesBehaviour.get("view-angle", None)
+
+                if arcRadius and viewAngle:
+                    centerTheta = vectorAngle([animal.velocity[0], -animal.velocity[1]])
+                    startTheta = (centerTheta - viewAngle[4]) % 360
+
+                    arcColour = "red" if (param == "flockmate-range" and animal.hasVisableNeighbours) else "#C1E1C1"
+
+                    self.create_arc(animal.position[0]-arcRadius[4], animal.position[1]-arcRadius[4],
+                                    animal.position[0]+arcRadius[4], animal.position[1]+arcRadius[4],
+                                    start=startTheta, extent= 2*viewAngle[4], fill=None, outline=arcColour, width=2, tags="visual_param")
+
     def fill_paint_window(self, e, terrain_type):
         # Get proper width and height
         width, height = self.terrain.contourImg.size
@@ -499,49 +483,44 @@ class SimCanvas(tk.Canvas):
         if self.controller.get_brush_shape() == "Square":
             half_width = paintWindowWidth // 2
             
-            # Calculate the intended brush area (can be negative or exceed bounds)
             brush_x_start = e.x - half_width
             brush_x_end = e.x + half_width
             brush_y_start = e.y - half_width
             brush_y_end = e.y + half_width
             
-            # Clip to canvas boundaries
             x_start = max(0, brush_x_start)
             x_end = min(width, brush_x_end)
             y_start = max(0, brush_y_start)
             y_end = min(height, brush_y_end)
             
-            # Create mask with correct dimensions
             mask = np.zeros((height, width), dtype=bool)
             
-            # Only fill the valid region
             if x_end > x_start and y_end > y_start:
                 mask[y_start:y_end, x_start:x_end] = True
                 
-        else:  # Circle brush - OPTIMIZED with NumPy vectorization
+        else:  # Circle brush
             radius = paintWindowWidth // 2
             
-            # Calculate bounding box
             x_min = max(0, e.x - radius)
             x_max = min(width, e.x + radius)
             y_min = max(0, e.y - radius)
             y_max = min(height, e.y + radius)
             
-            # Create coordinate grids for the bounding box
             y_coords, x_coords = np.ogrid[y_min:y_max, x_min:x_max]
-            
-            # Vectorized distance calculation
             distances_sq = (x_coords - e.x) ** 2 + (y_coords - e.y) ** 2
             circle_mask = distances_sq <= radius ** 2
             
-            # Create full mask and insert the circle
             mask = np.zeros((height, width), dtype=bool)
             mask[y_min:y_max, x_min:x_max] = circle_mask
         
-        mask_copy = np.copy(mask)
-        typegrid = np.copy(self.terrain.typegrid)
-        backward = functools.partial(self.terrain.overwriteRegion, mask_copy, typegrid)
+        # CRITICAL FIX: Make deep copies with explicit copy flags
+        mask_for_backward = np.copy(mask)  # For the backward operation
+        typegrid_snapshot = np.copy(self.terrain.typegrid)  # Snapshot of current state
         
+        # Create backward operation with the copies
+        backward = functools.partial(self.terrain.overwriteRegion, mask_for_backward, typegrid_snapshot)
+        
+        # Apply the forward operation
         forward = functools.partial(self.terrain.color_region, mask, terrain_type)
         forward()
         self.setBgImage(self.terrain.contourImg)
@@ -568,7 +547,7 @@ class SimCanvas(tk.Canvas):
     # event handlers
     def handleClick(self, e):
         # we can't interact with the canvas during rewinding
-        if self.mediaController.state in ["rewind", "fast-rewind"]:
+        if self.mediaController.state in REWIND_STATES:
             return
         
         ### ANIMAL SPAWNING 
@@ -629,43 +608,7 @@ class SimCanvas(tk.Canvas):
                 
                 # else if window width is bigger remove all obstacles in the paint window
                 else:
-                    #loop through all obstacles and boids
-                    obstacles_to_remove = []
-                    boids_to_remove = []
-                    
-                    for obstacle in self.obstacles:
-                        obstacle_type, x, y, _, _, _ = obstacle
-                        size = obstacles[obstacle_type]["size"]
-                        half_size = size // 2
-                        
-                        #check if obstacle is in paint window
-                        if self.controller.get_brush_shape() == "Square":
-                            half_width = paintWindowWidth // 2
-                            if (x + half_size >= e.x - half_width and x - half_size <= e.x + half_width and
-                                y + half_size >= e.y - half_width and y - half_size <= e.y + half_width):
-                                obstacles_to_remove.append(obstacle)
-                        else:  # Circle brush
-                            radius = paintWindowWidth // 2
-                            if (x - e.x) ** 2 + (y - e.y) ** 2 <= radius ** 2:
-                                obstacles_to_remove.append(obstacle)
-                                
-                    for _, boids in self.spawned_boids.items():
-                        for boid in boids:
-                            if self.controller.get_brush_shape() == "Square":
-                                half_width = paintWindowWidth // 2
-                                if (boid.position[0] >= e.x - half_width and boid.position[0] <= e.x + half_width and
-                                    boid.position[1] >= e.y - half_width and boid.position[1] <= e.y + half_width):
-                                    boids_to_remove.append(boid)
-                            else:  # Circle brush
-                                radius = paintWindowWidth // 2
-                                if (boid.position[0] - e.x) ** 2 + (boid.position[1] - e.y) ** 2 <= radius ** 2:
-                                    boids_to_remove.append(boid)
-                    
-                    for obs in obstacles_to_remove:
-                        self.obstacles.remove(obs)
-                        
-                    for boid in boids_to_remove:
-                        boid.kill()
+                    self._eraseInBrush(e)
 
                 
                     
@@ -699,20 +642,14 @@ class SimCanvas(tk.Canvas):
         
             if self.isPainting and paintWindowWidth > 0:
                 self.fill_paint_window(e, self.controller.get_selected_terrain())
-                if brush_shape == "Square":
-                    self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#FF0000", width=5)
-                else:
-                    self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#FF0000", width=5 )
+                self._drawBrushWindow(e, "#FF0000")
             else:
                 if paintWindowWidth == 0:
                     self.delete("paint_bucket")
                     self.create_image(e.x, e.y, image=self.paintBucketIcon, tags="paint_bucket")
                 else:
                     self.delete("paint_bucket")
-                    if brush_shape == "Square":
-                        self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
-                    else:
-                        self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+                    self._drawBrushWindow(e)
         
         elif self.controller.get_selected_terrain() == "Eraser":
             self.config(cursor="none")
@@ -725,48 +662,9 @@ class SimCanvas(tk.Canvas):
                 self.configure(cursor="X_cursor")
             else:
                 self.delete("paint_bucket")
-                if self.controller.get_brush_shape() == "Square":
-                    self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
-                else:
-                    self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+                self._drawBrushWindow(e)
                 if self.isPainting:
-                    #loop through all obstacles and boids
-                    obstacles_to_remove = []
-                    boids_to_remove = []
-                    for obstacle in self.obstacles:
-                        obstacle_type, x, y, _, _, _ = obstacle
-                        size = obstacles[obstacle_type]["size"]
-                        half_size = size // 2
-                        
-                        #check if obstacle is in paint window
-                        if self.controller.get_brush_shape() == "Square":
-                            half_width = paintWindowWidth // 2
-                            if (x + half_size >= e.x - half_width and x - half_size <= e.x + half_width and
-                                y + half_size >= e.y - half_width and y - half_size <= e.y + half_width):
-                                obstacles_to_remove.append(obstacle)
-                        else:  # Circle brush
-                            radius = paintWindowWidth // 2
-                            if (x - e.x) ** 2 + (y - e.y) ** 2 <= radius ** 2:
-                                obstacles_to_remove.append(obstacle)
-                    
-                    #check for boids in paint window
-                    for _, boids in self.spawned_boids.items():
-                        for boid in boids:
-                            if self.controller.get_brush_shape() == "Square":
-                                half_width = paintWindowWidth // 2
-                                if (boid.position[0] >= e.x - half_width and boid.position[0] <= e.x + half_width and
-                                    boid.position[1] >= e.y - half_width and boid.position[1] <= e.y + half_width):
-                                    boids_to_remove.append(boid)
-                            else:  # Circle brush
-                                radius = paintWindowWidth // 2
-                                if (boid.position[0] - e.x) ** 2 + (boid.position[1] - e.y) ** 2 <= radius ** 2:
-                                    boids_to_remove.append(boid)
-                    
-                    for obs in obstacles_to_remove:
-                        self.obstacles.remove(obs)
-                        
-                    for boid in boids_to_remove:
-                        boid.kill()
+                    self._eraseInBrush(e)
                 
         
         else:
@@ -780,7 +678,7 @@ class SimCanvas(tk.Canvas):
     def handleScrollWheel(self, e):
         global paintWindowWidth
         
-        if self.controller.get_selected_terrain() in ["Rock", "Sand", "Water", "Ice", "Snow", "Grass", "Eraser"]:
+        if self.controller.get_selected_terrain() in list(color_map) + ["Eraser"]:
             if e.num == 4 or e.delta > 0:
                 self.delete("paint_bucket")
                 print(f"Increasing brush size: {paintWindowWidth}")
@@ -796,10 +694,7 @@ class SimCanvas(tk.Canvas):
             #draw new window
             if self.mouseOnCanvas and paintWindowWidth > 0:
                 self.config(cursor="none")
-                if self.controller.get_brush_shape() == "Square":
-                    self.windowRec = self.create_rectangle(e.x - paintWindowWidth//2, e.y - paintWindowWidth//2, e.x + paintWindowWidth//2, e.y + paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5)
-                else:
-                    self.windowRec = self.create_oval(e.x-paintWindowWidth//2, e.y-paintWindowWidth//2 , e.x+paintWindowWidth//2, e.y+paintWindowWidth//2, fill=None, outline="#C1E1C1", width=5 )
+                self._drawBrushWindow(e)
             elif self.mouseOnCanvas and paintWindowWidth == 0:
                 self.delete("paint_bucket")
                 if self.controller.get_selected_terrain() != "Eraser":
@@ -809,7 +704,7 @@ class SimCanvas(tk.Canvas):
             
     def handleRightClick(self,e):
         # we can't interact with the canvas during rewinding
-        if self.mediaController.state in ["rewind", "fast-rewind"]:
+        if self.mediaController.state in REWIND_STATES:
             return
         
         self.discardFuture()

@@ -1,13 +1,11 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ['app.py'],
-    pathex=[],
+    ['run.py'],
+    pathex=['src'],
     binaries=[],
     datas=[
-        ('audio', 'audio'),          # Bundle audio files
-        ('icons', 'icons'),          # Bundle ALL icon files
-        ('default_terrains', 'default_terrains'),
+        ('assets', 'assets'),
     ],
     hiddenimports=['pygame', 'mutagen', 'PIL', 'numpy', 'tktooltip'],
     hookspath=[],
@@ -42,5 +40,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon='icons/sheep.ico'
+    icon='assets/icons/sheep.ico'
 )

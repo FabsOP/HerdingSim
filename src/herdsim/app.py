@@ -1,7 +1,7 @@
 #### IMPORTS ###############################
-from widgets.simulation import Simulation
-from widgets.main_menu import MainMenu
-from widgets.terrainLoader import TerrainLoader
+from herdsim.ui.simulation import Simulation
+from herdsim.ui.main_menu import MainMenu
+from herdsim.ui.terrainLoader import TerrainLoader
 
 #music and sounds
 import pygame
@@ -10,33 +10,31 @@ from mutagen.mp3 import MP3
 import random
 
 import time
-from terrain import Terrain
-import tkinter as tk
 
 # Deployment helper functions
-from path_utils import resource_path, user_data_path
-import os
+from herdsim.utils.path_utils import resource_path
+
+#fix rendering
+import ctypes
+
 
 #### HELPER FUNCTIONS ###################
-def generateTerrain(terrainSize, terrainType, heightMapPath=None, levels=15, invert=True):
-    """
-    Generates a terrain based on the given parameters.
-    """
-    canvasMultiplier = {"small": 1.5, "large": 2}
-    terrain = Terrain(int(256*canvasMultiplier[terrainSize]), int(256*canvasMultiplier[terrainSize]), invert=invert)
-    terrain.load(heightMapPath, terrainType, levels=levels)
-    return terrain
-
-
 def playSong(songIdx):
     pygame.mixer.music.load(playlist[songIdx][0])
     pygame.mixer.music.set_volume(playlist[songIdx][1])
     pygame.mixer.music.play()
 
+def songDuration(songIdx):
+    path, volume, duration = playlist[songIdx]
+    if duration is None:
+        duration = MP3(path).info.length
+        playlist[songIdx] = (path, volume, duration)
+    return duration
+
 def scheduleNextSong(sim):
     global songIdx
     inbetweenDelay = 5 #seconds
-    duration = int(playlist[songIdx][2] + inbetweenDelay)*1000
+    duration = int(songDuration(songIdx) + inbetweenDelay)*1000
     
     print(f"Now playing: [{songIdx+1}] {playlist[songIdx][0]}")
     playSong(songIdx)
@@ -58,20 +56,21 @@ audio_files = [
     ("audio/music/mystical-world.mp3", 0.1)
 ]
 
-playlist = []
-for audio_file, volume in audio_files:
-    path = resource_path(audio_file)  # Wrap path with resource_path()
-    duration = MP3(path).info.length
-    playlist.append((path, volume, duration))
-    
+playlist = [(resource_path(audio_file), volume, None) for audio_file, volume in audio_files]
+
 random.shuffle(playlist)
 
-pygame.mixer.init()
-
 ### MAIN CODE ######################################################
-if __name__ == "__main__":
+def main():
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)  # or (2) for per-monitor
+        print("DPI awareness set successfully.")
+    except Exception:
+        print("DPI awareness setting failed or not supported on this OS.")
+        pass
     
-    
+    pygame.mixer.init()
+
     m = MainMenu()
     t = TerrainLoader()
     
@@ -84,3 +83,7 @@ if __name__ == "__main__":
     s.canvas.update(60, ti=time.time())
         
     s.mainloop()
+
+
+if __name__ == "__main__":
+    main()

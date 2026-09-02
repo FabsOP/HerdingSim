@@ -1,11 +1,11 @@
 from tkinter import ttk
 import tkinter as tk
 
-from widgets.animalTab import SpeciesTab
-from widgets.terrainEditorTab import TerrainTab
-from widgets.behaviourTab import BehaviourTab
-import boid
-from widgets.borderHandler import BorderHandler
+from herdsim.ui.animalTab import SpeciesTab
+from herdsim.ui.terrainEditorTab import TerrainTab
+from herdsim.ui.behaviourTab import BehaviourTab
+from herdsim.core import boid
+from herdsim.ui.borderHandler import BorderHandler
 
 class Controller(tk.Frame):
     def __init__(self, parent):

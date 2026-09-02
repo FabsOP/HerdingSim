@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 792 178" width="792" height="178" role="img" aria-label="Terrain biome palette" shape-rendering="crispEdges" font-family="ui-monospace,SFMono-Regular,Consolas,monospace">
+<rect x="0" y="0" width="792" height="178" fill="#0E2415"/>
+<rect x="12" y="34" width="118" height="14" fill="#184D27"/>
+<rect x="12" y="48" width="118" height="14" fill="#2F613B"/>
+<rect x="12" y="62" width="118" height="14" fill="#46754F"/>
+<rect x="12" y="76" width="118" height="14" fill="#5D8963"/>
+<rect x="12" y="90" width="118" height="14" fill="#749C76"/>
+<rect x="12" y="104" width="118" height="14" fill="#8BB08A"/>
+<rect x="12" y="118" width="118" height="14" fill="#A2C49E"/>
+<rect x="12" y="132" width="118" height="14" fill="#B9D8B2"/>
+<rect x="12" y="34" width="118" height="112" fill="none" stroke="#4C6B32" stroke-width="3"/>
+<text x="71" y="24" fill="#F5FBEF" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="2">GRASS</text>
+<rect x="142" y="34" width="118" height="14" fill="#7B4019"/>
+<rect x="142" y="48" width="118" height="14" fill="#8D562A"/>
+<rect x="142" y="62" width="118" height="14" fill="#A06C3C"/>
+<rect x="142" y="76" width="118" height="14" fill="#B2824D"/>
+<rect x="142" y="90" width="118" height="14" fill="#C4995F"/>
+<rect x="142" y="104" width="118" height="14" fill="#D6AF70"/>
+<rect x="142" y="118" width="118" height="14" fill="#E9C582"/>
+<rect x="142" y="132" width="118" height="14" fill="#FBDB93"/>
+<rect x="142" y="34" width="118" height="112" fill="none" stroke="#4C6B32" stroke-width="3"/>
+<text x="201" y="24" fill="#F5FBEF" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="2">SAND</text>
+<rect x="272" y="34" width="118" height="14" fill="#000000"/>
+<rect x="272" y="48" width="118" height="14" fill="#132022"/>
+<rect x="272" y="62" width="118" height="14" fill="#264145"/>
+<rect x="272" y="76" width="118" height="14" fill="#396167"/>
+<rect x="272" y="90" width="118" height="14" fill="#4B8289"/>
+<rect x="272" y="104" width="118" height="14" fill="#5EA2AB"/>
+<rect x="272" y="118" width="118" height="14" fill="#71C3CE"/>
+<rect x="272" y="132" width="118" height="14" fill="#84E3F0"/>
+<rect x="272" y="34" width="118" height="112" fill="none" stroke="#4C6B32" stroke-width="3"/>
+<text x="331" y="24" fill="#F5FBEF" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="2">ICE</text>
+<rect x="402" y="34" width="118" height="14" fill="#0A223A"/>
+<rect x="402" y="48" width="118" height="14" fill="#0B2B49"/>
+<rect x="402" y="62" width="118" height="14" fill="#0D3457"/>
+<rect x="402" y="76" width="118" height="14" fill="#0E3D66"/>
+<rect x="402" y="90" width="118" height="14" fill="#104674"/>
+<rect x="402" y="104" width="118" height="14" fill="#114F83"/>
+<rect x="402" y="118" width="118" height="14" fill="#135891"/>
+<rect x="402" y="132" width="118" height="14" fill="#1461A0"/>
+<rect x="402" y="34" width="118" height="112" fill="none" stroke="#4C6B32" stroke-width="3"/>
+<text x="461" y="24" fill="#F5FBEF" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="2">WATER</text>
+<rect x="532" y="34" width="118" height="14" fill="#000000"/>
+<rect x="532" y="48" width="118" height="14" fill="#181818"/>
+<rect x="532" y="62" width="118" height="14" fill="#303030"/>
+<rect x="532" y="76" width="118" height="14" fill="#484848"/>
+<rect x="532" y="90" width="118" height="14" fill="#616161"/>
+<rect x="532" y="104" width="118" height="14" fill="#797979"/>
+<rect x="532" y="118" width="118" height="14" fill="#919191"/>
+<rect x="532" y="132" width="118" height="14" fill="#A9A9A9"/>
+<rect x="532" y="34" width="118" height="112" fill="none" stroke="#4C6B32" stroke-width="3"/>
+<text x="591" y="24" fill="#F5FBEF" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="2">ROCK</text>
+<rect x="662" y="34" width="118" height="14" fill="#7A8FA3"/>
+<rect x="662" y="48" width="118" height="14" fill="#8D9FB0"/>
+<rect x="662" y="62" width="118" height="14" fill="#A0AFBD"/>
+<rect x="662" y="76" width="118" height="14" fill="#B3BFCA"/>
+<rect x="662" y="90" width="118" height="14" fill="#C6CFD8"/>
+<rect x="662" y="104" width="118" height="14" fill="#D9DFE5"/>
+<rect x="662" y="118" width="118" height="14" fill="#ECEFF2"/>
+<rect x="662" y="132" width="118" height="14" fill="#FFFFFF"/>
+<rect x="662" y="34" width="118" height="112" fill="none" stroke="#4C6B32" stroke-width="3"/>
+<text x="721" y="24" fill="#F5FBEF" font-size="14" font-weight="bold" text-anchor="middle" letter-spacing="2">SNOW</text>
+<text x="396" y="166" fill="#A9C46C" font-size="12" text-anchor="middle" letter-spacing="2">each biome renders the heightmap as stepped contour bands</text>
+</svg>

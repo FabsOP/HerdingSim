@@ -1,5 +1,5 @@
 import numpy as np
-from boid import behaviours
+from herdsim.core.boid import behaviours
 
 class Flock:
     def __init__(self,species, members):

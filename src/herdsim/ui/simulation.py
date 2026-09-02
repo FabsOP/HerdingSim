@@ -1,26 +1,27 @@
 #### IMPORTS ##################################################
 import tkinter as tk
-from widgets.controller import Controller
-from widgets.media_controller import MediaController
-from widgets.sim_canvas import SimCanvas
+from herdsim.ui.controller import Controller
+from herdsim.ui.media_controller import MediaController
+from herdsim.ui.sim_canvas import SimCanvas
 
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from path_utils import resource_path
+from herdsim.utils.path_utils import resource_path
+from herdsim.ui.ui_utils import center_window
 
 #### SIMULATION CLASS ####################
-windowSizeMap = {"small": "680x490", "large": "810x615"}
-canvasMultiplier = {"small": 1.5, "large": 2}
+windowSizeMap = {"small": (680, 490), "large": (810, 615)}
 
 class Simulation(tk.Tk):
     ### a) Contructor
     def __init__(self, terrainSize,terrain):
         super().__init__()
         self.title("HerdSim")
-        self.geometry(f"{windowSizeMap[terrainSize]}")
+        winWidth, winHeight = windowSizeMap[terrainSize]
+        self.geometry(f"{winWidth}x{winHeight}")
         self.resizable(0,0)
-        self.config(background="#E4F1E0")  # Lighter greenish background
+        #self.config(background="#E4F1E0")  # Lighter greenish background
+        self.config(background="#FFFFFF")
 
         #center window
         self.center_window(terrainSize)
@@ -39,15 +40,6 @@ class Simulation(tk.Tk):
 
     ### b) Function to center window on screen        
     def center_window(self, terrainSize):
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        win_width = int(windowSizeMap[terrainSize].split("x")[0])
-        win_height = int(windowSizeMap[terrainSize].split("x")[1])
-
-        x = (screen_width // 2) - (win_width // 2)
-        # shift the window up a bit (adjust shift_pixels as desired)
-        shift_pixels = 30
-        y = (screen_height // 2) - (win_height // 2) - shift_pixels
-        self.geometry(f"+{x}+{y}")
+        center_window(self, *windowSizeMap[terrainSize])
     
         

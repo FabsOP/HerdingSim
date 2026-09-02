@@ -1,7 +1,7 @@
 import tkinter as tk
 import copy
-from boid import default_behaviours, behaviours, param_short_names,updateParamBoundaries, tooltips
-import boid
+from herdsim.core.boid import default_behaviours, behaviours, param_short_names,updateParamBoundaries, tooltips
+from herdsim.core import boid
 import time
 from tktooltip import ToolTip
 

@@ -5,8 +5,7 @@ from tktooltip import ToolTip
 
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from path_utils import resource_path
+from herdsim.utils.path_utils import resource_path
 
 class SpeciesTab(tk.Frame):
     def __init__(self, parent, f_unselect_terrains):
