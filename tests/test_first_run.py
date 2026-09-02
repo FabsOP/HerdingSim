@@ -1,10 +1,9 @@
 """saves/ is not tracked, so a fresh clone must rebuild it from the bundled defaults."""
-import os
 import pickle as pkl
-import shutil
 
 import pytest
 
+from herdsim.core.terrain import Terrain
 from herdsim.ui import terrainLoader as loader_module
 from herdsim.ui.terrainLoader import TerrainLoader
 from herdsim.utils.path_utils import resource_path
@@ -15,9 +14,21 @@ def fresh_checkout(tmp_path, monkeypatch):
     saves = tmp_path / "saves"
     defaults = tmp_path / "default_terrains"
     defaults.mkdir()
-    shutil.copy(os.path.join(resource_path("default_terrains"), "flat.terrain"),
-                defaults / "Valley.terrain")
 
+    # a tiny terrain, so the test does not copy 16MB around
+    tiny = Terrain(32, 32, invert=False)
+    tiny.load(None, "Grass", levels=4)
+    with open(defaults / "Valley.terrain", "wb") as fh:
+        pkl.dump(tiny, fh)
+
+    def small_flat(path):
+        terrain = Terrain(32, 32, invert=False)
+        terrain.load(None, "Grass", levels=4)
+        with open(path, "wb") as fh:
+            pkl.dump(terrain, fh)
+        return terrain
+
+    monkeypatch.setattr(TerrainLoader, "_makeFlatTerrain", staticmethod(small_flat))
     monkeypatch.setattr(loader_module, "user_data_path", lambda rel: str(tmp_path / rel))
     monkeypatch.setattr(loader_module, "resource_path",
                         lambda rel: str(defaults) if rel == "default_terrains" else resource_path(rel))
